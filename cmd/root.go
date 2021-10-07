@@ -14,8 +14,8 @@ var rootCmd = &cobra.Command{
 	DisableFlagsInUseLine: true,
 	Example: strings.Join([]string{
 		"goblade live",
-		"goblade live eth0",
-		"goblade file packets.pcapng",
+		"goblade live enp0s2",
+		"goblade file ./packets.pcapng",
 	}, "\n"),
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
