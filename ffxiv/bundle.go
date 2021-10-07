@@ -5,8 +5,10 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"time"
+	"unsafe"
 )
 
 type EncodingType uint8
@@ -32,8 +34,8 @@ var (
 var byteOrder = binary.LittleEndian
 
 type bundleHeader struct {
-	// Magic number header - all IPC bundles share the same magic number
-	// and all keep-alive bundles have a magic number of zero.
+	// Magic string header - all IPC bundles share the same magic string
+	// and all keep-alive bundles have a magic string of all null bytes.
 	Magic [16]byte
 
 	// The number of milliseconds since the Unix epoch time.
@@ -69,7 +71,7 @@ type Bundle struct {
 func ReadBundle(rd io.Reader, b *Bundle) error {
 	// Read the Bundle header
 	if err := binary.Read(rd, byteOrder, &b.bundleHeader); err != nil {
-		return err
+		return fmt.Errorf("read bundle header: %w", err)
 	}
 
 	// Validate magic string in Bundle header.
@@ -99,11 +101,22 @@ func ReadBundle(rd io.Reader, b *Bundle) error {
 
 	for i := 0; i < len(b.Segments); i++ {
 		if err := ReadSegment(rr, &b.Segments[i]); err != nil {
-			return err
+			return fmt.Errorf("read segment: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func ReadBundleLength(data []byte) int {
+	offset := unsafe.Offsetof(bundleHeader{}.Length)
+	size := unsafe.Sizeof(bundleHeader{}.Length)
+
+	if len(data) < int(offset+size) {
+		return -1
+	}
+
+	return int(byteOrder.Uint16(data[offset:]))
 }
 
 func (b *Bundle) Time() time.Time {

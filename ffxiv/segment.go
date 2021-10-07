@@ -2,6 +2,7 @@ package ffxiv
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"unsafe"
 )
@@ -66,7 +67,7 @@ type KeepAlive struct {
 func ReadSegment(rd io.Reader, s *Segment) error {
 	// Read the Segment header
 	if err := binary.Read(rd, byteOrder, &s.segmentHeader); err != nil {
-		return err
+		return fmt.Errorf("read segment header: %w", err)
 	}
 
 	// Decode the Segment payload depending on the type
@@ -74,26 +75,27 @@ func ReadSegment(rd io.Reader, s *Segment) error {
 	case SegmentIpc:
 		ipc := &Ipc{}
 		if err := binary.Read(rd, byteOrder, &ipc.ipcHeader); err != nil {
-			return err
+			return fmt.Errorf("read ipc header: %w", err)
 		}
 
 		ipc.Data = make([]byte, s.payloadLength()-ipcHeaderSize)
 		if _, err := io.ReadFull(rd, ipc.Data); err != nil {
-			return err
+			return fmt.Errorf("read ipc data: %w", err)
 		}
 
 		s.Payload = ipc
-	case SegmentClientKeepAlive:
-	case SegmentServerKeepAlive:
-		s.Payload = &KeepAlive{}
-		if err := binary.Read(rd, byteOrder, &s.Payload); err != nil {
-			return err
+	case SegmentClientKeepAlive, SegmentServerKeepAlive:
+		keepAlive := &KeepAlive{}
+		if err := binary.Read(rd, byteOrder, keepAlive); err != nil {
+			return fmt.Errorf("read keep-alive: %w", err)
 		}
+		s.Payload = keepAlive
 	default:
-		s.Payload = make([]byte, s.payloadLength())
-		if _, err := io.ReadFull(rd, s.Payload.([]byte)); err != nil {
-			return err
+		data := make([]byte, s.payloadLength())
+		if _, err := io.ReadFull(rd, data); err != nil {
+			return fmt.Errorf("read raw segment: %w", err)
 		}
+		s.Payload = data
 	}
 
 	return nil
