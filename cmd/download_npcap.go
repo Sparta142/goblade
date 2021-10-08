@@ -15,7 +15,7 @@ var downloadNpcapCmd = &cobra.Command{
 	Use:   "download-npcap",
 	Short: "Open the Npcap library download webpage",
 	Run: func(*cobra.Command, []string) {
-		if err := browser.OpenURL(url); err == nil {
+		if err := browser.OpenURL(url); err != nil {
 			fmt.Println("Unable to open a web browser automatically.")
 			fmt.Println("Please visit this link to download Npcap:")
 			fmt.Printf("\n%s\n\n", url)
