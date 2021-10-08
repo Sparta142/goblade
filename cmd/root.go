@@ -9,7 +9,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:                   "goblade",
-	Short:                 "Lightweight, embeddable tool for capturing FINAL FANTASY XIV network traffic",
+	Short:                 "Lightweight, embeddable tool for capturing FINAL FANTASY XIV network traffic.",
 	Version:               "0.3.0",
 	DisableFlagsInUseLine: true,
 	Example: strings.Join([]string{

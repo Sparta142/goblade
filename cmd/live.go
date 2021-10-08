@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"reflect"
 	"time"
 
 	"github.com/google/gopacket/pcap"
@@ -23,9 +22,20 @@ var liveCmd = &cobra.Command{
 	Args:                  cobra.MaximumNArgs(1),
 	DisableFlagsInUseLine: true,
 	RunE: func(_ *cobra.Command, args []string) error {
-		device, err := getDeviceName(args)
-		if err != nil {
-			return err
+		var device string
+
+		if len(args) == 0 {
+			var err error
+			device, err = getDefaultDeviceName()
+
+			if err != nil {
+				return err
+			}
+
+			log.Printf("Capturing on default device: %s\n", device)
+		} else {
+			device = args[0]
+			log.Printf("Capturing on given device: %s\n", device)
 		}
 
 		handle, err := pcap.OpenLive(device, 2048, promiscuous, pcap.BlockForever)
@@ -33,8 +43,6 @@ var liveCmd = &cobra.Command{
 			return err
 		}
 		defer handle.Close()
-
-		log.Printf("Capturing on interface: %s\n", getInterfaceName(handle))
 
 		for bnd := range net.Capture(handle) {
 			fmt.Printf("%v (latency = %s)\n", bnd, time.Since(bnd.Time())) // TODO
@@ -44,11 +52,7 @@ var liveCmd = &cobra.Command{
 	},
 }
 
-func getDeviceName(args []string) (string, error) {
-	if len(args) > 0 {
-		return args[0], nil
-	}
-
+func getDefaultDeviceName() (string, error) {
 	ip, err := gateway.DiscoverInterface()
 	if err != nil {
 		return "", err
@@ -68,12 +72,6 @@ func getDeviceName(args []string) (string, error) {
 	}
 
 	return "", errNoDefaultInterface
-}
-
-func getInterfaceName(handle *pcap.Handle) string {
-	v := reflect.ValueOf(*handle)
-	device := v.FieldByName("device")
-	return device.String()
 }
 
 func init() {

@@ -115,7 +115,7 @@ func newCaptureContext(packet gopacket.Packet) *captureContext {
 // or the default filter if none has been set.
 func bpfFilter() string {
 	if expr, present := os.LookupEnv("GOBLADE_BPF"); present {
-		log.Printf("Overriding default BPF with \"%s\"\n", expr)
+		log.Printf("Overriding default BPF with %q\n", expr)
 		return expr
 	}
 
