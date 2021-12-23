@@ -1,12 +1,16 @@
 before:
   hooks:
     - go mod tidy
+    - go generate ./...
 
 builds:
-  - goos:
+  - env:
+      - CGO_ENABLED=0
+    goos:
       - windows
     goarch:
       - amd64
+      - 386
 
 archives:
   - replacements:
@@ -20,7 +24,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ incpatch .Version }}-snapshot"
 
 changelog:
   sort: asc
