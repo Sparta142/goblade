@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	_ "github.com/sparta142/goblade/v2/ffxiv"
 )
 
 var rootCmd = &cobra.Command{
@@ -23,7 +24,5 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	rootCmd.Execute()
 }
