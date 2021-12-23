@@ -34,5 +34,5 @@ func init() {
 		log.WithError(err).Fatal("Failed to unmarshal embedded opcodes")
 	}
 
-	log.Infof("Loaded embedded opcode definitions for %d regions", len(opcodes))
+	log.Debugf("Loaded embedded opcode definitions for %d regions", len(opcodes))
 }

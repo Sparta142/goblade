@@ -54,7 +54,7 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundl
 		ticker := time.NewTicker(flushInterval)
 
 		defer func() {
-			log.Debugf("Closing all streams...")
+			log.Debugf("Closing all streams")
 			closed := assembler.FlushAll()
 			log.Infof("Closed %d streams", closed)
 
@@ -81,7 +81,7 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundl
 				assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
 
 			case <-ticker.C:
-				log.Debugf("Starting periodic flush...")
+				log.Debugf("Starting periodic flush")
 
 				flushed, closed := assembler.FlushWithOptions(reassembly.FlushOptions{
 					T: time.Now().Add(-flushStreamAge),

@@ -35,6 +35,8 @@ type ffxivHalfStream struct {
 }
 
 func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
+	log.Debugf("Creating half stream for %s->%s", srcPort, dstPort)
+
 	hs := ffxivHalfStream{
 		srcPort:  srcPort,
 		dstPort:  dstPort,
@@ -107,6 +109,7 @@ func (s *ffxivStream) getHalf(direction reassembly.TCPFlowDirection) *ffxivHalfS
 
 func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 	defer wg.Done()
+	log.Debugf("Starting half stream processing for %v", hs)
 
 	scanner := bufio.NewScanner(hs.r)
 	scanner.Split(hs.splitBundles)
