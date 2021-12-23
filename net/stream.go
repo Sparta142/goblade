@@ -6,13 +6,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/djherbis/buffer"
+	"github.com/djherbis/nio/v3"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/reassembly"
 	"github.com/sparta142/goblade/v2/ffxiv"
-	"github.com/sparta142/goblade/v2/internal"
 )
 
 type ffxivStream struct {
@@ -24,24 +25,35 @@ type ffxivStream struct {
 
 type ffxivHalfStream struct {
 	srcPort, dstPort layers.TCPPort
-	in               chan []byte
-	out              chan<- ffxiv.Bundle
+	bundles          chan<- ffxiv.Bundle
 
 	// Whether the reassembler missed a TCP segment
 	lostData bool
+
+	r *nio.PipeReader
+	w *nio.PipeWriter
 }
 
-func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, out chan<- ffxiv.Bundle) ffxivHalfStream {
-	return ffxivHalfStream{
+func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
+	hs := ffxivHalfStream{
 		srcPort:  srcPort,
 		dstPort:  dstPort,
-		in:       make(chan []byte),
-		out:      out,
+		bundles:  bundles,
 		lostData: false,
 	}
+
+	hs.r, hs.w = nio.Pipe(buffer.New(16 * 1024)) // 16 KiB
+	return hs
 }
 
-func (stream *ffxivStream) Accept(tcp *layers.TCP, ci gopacket.CaptureInfo, dir reassembly.TCPFlowDirection, nextSeq reassembly.Sequence, start *bool, ac reassembly.AssemblerContext) bool {
+func (stream *ffxivStream) Accept(
+	tcp *layers.TCP,
+	ci gopacket.CaptureInfo,
+	dir reassembly.TCPFlowDirection,
+	nextSeq reassembly.Sequence,
+	start *bool,
+	ac reassembly.AssemblerContext,
+) bool {
 	if !stream.fsm.CheckState(tcp, dir) {
 		return false // Failed TCP state check
 	}
@@ -70,13 +82,14 @@ func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, ac reassem
 	}
 
 	// Queue the packets to the Bundle reading logic
-	half.in <- sg.Fetch(available)
+	p := sg.Fetch(available)
+	half.w.Write(p)
 }
 
 func (stream *ffxivStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
 	log.Debugf("Closing stream %v", stream)
-	close(stream.toClient.in)
-	close(stream.toServer.in)
+	stream.toClient.w.Close()
+	stream.toServer.w.Close()
 	return true
 }
 
@@ -95,8 +108,9 @@ func (s *ffxivStream) getHalf(direction reassembly.TCPFlowDirection) *ffxivHalfS
 func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	scanner := bufio.NewScanner(internal.NewChannelReader(hs.in))
+	scanner := bufio.NewScanner(hs.r)
 	scanner.Split(hs.splitBundles)
+	defer hs.r.Close()
 
 	var bundle ffxiv.Bundle
 
@@ -106,7 +120,7 @@ func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 			log.WithError(err).Fatal("Failed to read bundle") // TODO: Handle gracefully
 		}
 
-		hs.out <- bundle
+		hs.bundles <- bundle
 	}
 
 	if err := scanner.Err(); err != nil {
