@@ -6,6 +6,7 @@ import (
 	"log"
 )
 
+//go:generate curl -o opcodes.json https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.json
 //go:embed opcodes.json
 var opcodesJson []byte
 
