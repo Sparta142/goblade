@@ -2,9 +2,10 @@ package net
 
 import (
 	"context"
-	"log"
 	"os"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -53,9 +54,9 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundl
 		ticker := time.NewTicker(flushInterval)
 
 		defer func() {
-			log.Println("Closing all streams...")
+			log.Debugf("Closing all streams...")
 			closed := assembler.FlushAll()
-			log.Printf("Closed %d streams\n", closed)
+			log.Infof("Closed %d streams", closed)
 
 			factory.Wait()
 			close(out)
@@ -65,7 +66,7 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundl
 			select {
 			case packet, ok := <-src.Packets():
 				if !ok {
-					log.Println("No more packets to handle")
+					log.Info("No more packets to handle")
 					return
 				}
 
@@ -73,20 +74,20 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundl
 				net := packet.NetworkLayer()
 
 				if err := tcp.SetNetworkLayerForChecksum(net); err != nil {
-					log.Printf("Failed to set network layer for checksum: %s", err)
+					log.WithError(err).Warn("Failed to set network layer for checksum")
 					return
 				}
 
 				assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
 
 			case <-ticker.C:
-				log.Println("Starting periodic flush...")
+				log.Debugf("Starting periodic flush...")
 
 				flushed, closed := assembler.FlushWithOptions(reassembly.FlushOptions{
 					T: time.Now().Add(-flushStreamAge),
 				})
 
-				log.Printf("Flushed %d streams, closed %d\n", flushed, closed)
+				log.Debugf("Flushed %d streams, closed %d", flushed, closed)
 
 			case <-ctx.Done():
 				return
@@ -115,7 +116,7 @@ func newCaptureContext(packet gopacket.Packet) *captureContext {
 // or the default filter if none has been set.
 func bpfFilter() string {
 	if expr, present := os.LookupEnv("GOBLADE_BPF"); present {
-		log.Printf("Overriding default BPF with %q\n", expr)
+		log.WithField("new_bpf", expr).Warn("Default BPF overridden in environment variables")
 		return expr
 	}
 

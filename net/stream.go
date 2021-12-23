@@ -3,9 +3,10 @@ package net
 import (
 	"bufio"
 	"bytes"
-	"log"
 	"strings"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -64,7 +65,7 @@ func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, ac reassem
 
 	if skip > 0 {
 		half.lostData = true
-		log.Printf("Lost %d bytes in stream\n", skip)
+		log.Warnf("Lost %d bytes in stream", skip)
 		return
 	}
 
@@ -73,7 +74,7 @@ func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, ac reassem
 }
 
 func (stream *ffxivStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
-	log.Printf("Closing stream %v\n", stream)
+	log.Debugf("Closing stream %v", stream)
 	close(stream.toClient.in)
 	close(stream.toServer.in)
 	return true
@@ -102,14 +103,14 @@ func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 	for scanner.Scan() {
 		r := bytes.NewReader(scanner.Bytes())
 		if err := ffxiv.ReadBundle(r, &bundle); err != nil {
-			log.Fatalln(err)
+			log.WithError(err).Fatal("Failed to read bundle") // TODO: Handle gracefully
 		}
 
 		hs.out <- bundle
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Printf("Scanner errored: %s (consider restarting the program)", err)
+		log.WithError(err).Error("Failed while scanning for bundle") // TODO: Should this crash?
 	}
 }
 
@@ -125,7 +126,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	//		  This will also *not* cause any issues with misinterpreting the data stream.
 	if hs.lostData {
 		hs.lostData = false
-		log.Printf("Discarding %d bytes in scanner as a safety measure\n", len(data))
+		log.Warnf("Discarding %d bytes in scanner as a safety measure", len(data))
 		return len(data), nil, nil
 	}
 

@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/google/gopacket/pcap"
 	"github.com/sparta142/goblade/v2/net"
@@ -21,7 +22,7 @@ var fileCmd = &cobra.Command{
 		}
 		defer handle.Close()
 
-		log.Printf("Parsing capture file: %q\n", args[0])
+		log.Debugf("Parsing capture file: %s", args[0])
 
 		for bnd := range net.Capture(handle) {
 			fmt.Println(bnd) // TODO

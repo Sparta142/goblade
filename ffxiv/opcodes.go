@@ -3,7 +3,8 @@ package ffxiv
 import (
 	_ "embed"
 	"encoding/json"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 //go:generate curl -o opcodes.json https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.json
@@ -30,8 +31,8 @@ type opcodeDef struct {
 
 func init() {
 	if err := json.Unmarshal(opcodesJson, &opcodes); err != nil {
-		log.Fatalf("Failed to unmarshal opcodes.json: %v", err)
+		log.WithError(err).Fatal("Failed to unmarshal embedded opcodes")
 	}
 
-	log.Printf("Loaded embedded opcode definitions for %d regions", len(opcodes))
+	log.Infof("Loaded embedded opcode definitions for %d regions", len(opcodes))
 }

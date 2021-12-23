@@ -3,8 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/google/gopacket/pcap"
 	"github.com/jackpal/gateway"
@@ -32,10 +33,10 @@ var liveCmd = &cobra.Command{
 				return err
 			}
 
-			log.Printf("Capturing on default device: %s\n", device)
+			log.Infof("Capturing on default device: %s", device)
 		} else {
 			device = args[0]
-			log.Printf("Capturing on given device: %s\n", device)
+			log.Infof("Capturing on specified device: %s", device)
 		}
 
 		handle, err := pcap.OpenLive(device, 2048, promiscuous, pcap.BlockForever)
