@@ -11,7 +11,7 @@ import (
 )
 
 var fileCmd = &cobra.Command{
-	Use:                   "file filename",
+	Use:                   "file FILENAME",
 	Short:                 "Decode traffic from a pcap-compatible file",
 	Args:                  cobra.ExactArgs(1),
 	DisableFlagsInUseLine: true,

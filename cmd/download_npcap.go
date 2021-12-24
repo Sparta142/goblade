@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/browser"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -13,12 +14,13 @@ const url = "https://nmap.org/npcap/#download"
 
 var downloadNpcapCmd = &cobra.Command{
 	Use:   "download-npcap",
-	Short: "Open the Npcap library download webpage",
+	Short: "Open the Npcap library download webpage in a web browser",
 	Run: func(*cobra.Command, []string) {
 		if err := browser.OpenURL(url); err != nil {
-			fmt.Println("Unable to open a web browser automatically.")
-			fmt.Println("Please visit this link to download Npcap:")
-			fmt.Printf("\n%s\n\n", url)
+			log.WithError(err).Debug("Failed to open browser")
+
+			fmt.Println("Unable to open a web browser. Please visit this link to download Npcap:")
+			fmt.Printf("\n    %s\n\n", url)
 		}
 	},
 }

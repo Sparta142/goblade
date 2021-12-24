@@ -18,7 +18,7 @@ var errNoDefaultInterface = errors.New("no default interface found")
 var promiscuous bool
 
 var liveCmd = &cobra.Command{
-	Use:                   "live [--promiscuous] [device]",
+	Use:                   "live [--promiscuous] [INTERFACE]",
 	Short:                 "Decode traffic from a network interface in real time",
 	Args:                  cobra.MaximumNArgs(1),
 	DisableFlagsInUseLine: true,
@@ -82,5 +82,5 @@ func init() {
 		&promiscuous,
 		"promiscuous",
 		false,
-		"whether to capture all traffic instead of just this computer's")
+		"capture all network traffic instead of just this computer's")
 }
