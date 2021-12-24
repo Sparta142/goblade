@@ -44,7 +44,7 @@ func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, bundles chan<- ffxiv.Bu
 		lostData: false,
 	}
 
-	hs.r, hs.w = nio.Pipe(buffer.New(16 * 1024)) // 16 KiB
+	hs.r, hs.w = nio.Pipe(buffer.New(4 * 1024)) // 4 KiB
 	return hs
 }
 
@@ -147,21 +147,16 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 		return len(data), nil, nil
 	}
 
-	s := string(data)
-
 	// Find the magic string
-	i := indexFirst(s, ffxiv.IpcMagicString, ffxiv.KeepAliveMagicString)
+	i := indexFirst(string(data), ffxiv.IpcMagicString, ffxiv.KeepAliveMagicString)
 	if i == -1 {
 		return 0, nil, nil
 	}
 
-	// Get the length of the bundle that is signaled by the magic string
+	// The chunk of `data` that starts with the magic string (found above)
 	chunk := data[i:]
-	if len(chunk) < 2 {
-		return i, nil, nil
-	}
 
-	length := int(ffxiv.ReadBundleLength(chunk)) // The (probable) length of the Bundle
+	length := ffxiv.ReadBundleLength(chunk) // The (probable) length of the Bundle
 	if length > len(chunk) || length == -1 {
 		return i, nil, nil
 	}

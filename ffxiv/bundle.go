@@ -1,7 +1,6 @@
 package ffxiv
 
 import (
-	"bufio"
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
@@ -19,16 +18,23 @@ const (
 	CompressionZlib = CompressionType(1)
 )
 
-// Magic string indicating that a Bundle contains IPC segments.
-const IpcMagicString = "\x52\x52\xa0\x41\xff\x5d\x46\xe2\x7f\x2a\x64\x4d\x7b\x99\xc4\x75"
+const (
+	// Magic string indicating that a Bundle contains IPC segments.
+	IpcMagicString = "\x52\x52\xa0\x41\xff\x5d\x46\xe2\x7f\x2a\x64\x4d\x7b\x99\xc4\x75"
 
-// Magic string indicating that a Bundle contains keep-alive segments.
-const KeepAliveMagicString = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	// Magic string indicating that a Bundle contains keep-alive segments.
+	KeepAliveMagicString = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+)
 
 var (
 	ErrBadMagicString = errors.New("ffxiv: bad magic string")
 	ErrBadCompression = errors.New("ffxiv: bad compression type")
 	ErrBadSegmentType = errors.New("ffxiv: bad segment type")
+)
+
+var (
+	bundleLengthOffset = unsafe.Offsetof(bundleHeader{}.Length)
+	bundleLengthSize   = unsafe.Sizeof(bundleHeader{}.Length)
 )
 
 var byteOrder = binary.LittleEndian
@@ -80,20 +86,22 @@ func ReadBundle(rd io.Reader, b *Bundle) error {
 		return ErrBadMagicString
 	}
 
-	// Make a reader to decompress the payload if needed
+	// A reader for the decompressed payload, which is the exact
+	// same reader if the payload isn't compressed to begin with.
 	var rr io.Reader
 
 	switch b.Compression {
 	case CompressionNone:
 		rr = rd
 	case CompressionZlib:
-		zr, err := zlib.NewReader(bufio.NewReader(rd))
+		zr, err := zlib.NewReader(rd)
 		if err != nil {
 			return err
 		}
-
 		defer zr.Close()
 		rr = zr
+	default:
+		return ErrBadCompression
 	}
 
 	// Read all segments from the decompressed payload
@@ -109,14 +117,11 @@ func ReadBundle(rd io.Reader, b *Bundle) error {
 }
 
 func ReadBundleLength(data []byte) int {
-	offset := unsafe.Offsetof(bundleHeader{}.Length)
-	size := unsafe.Sizeof(bundleHeader{}.Length)
-
-	if len(data) < int(offset+size) {
+	if len(data) < int(bundleLengthOffset+bundleLengthSize) {
 		return -1
 	}
 
-	return int(byteOrder.Uint16(data[offset:]))
+	return int(byteOrder.Uint16(data[bundleLengthOffset:]))
 }
 
 func (b *Bundle) Time() time.Time {
