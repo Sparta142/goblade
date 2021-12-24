@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/gopacket/pcap"
 	"github.com/jackpal/gateway"
-	"github.com/sparta142/goblade/v2/net"
+	"github.com/sparta142/goblade/net"
 	"github.com/spf13/cobra"
 )
 

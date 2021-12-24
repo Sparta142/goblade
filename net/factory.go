@@ -6,7 +6,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/reassembly"
-	"github.com/sparta142/goblade/v2/ffxiv"
+	"github.com/sparta142/goblade/ffxiv"
 )
 
 type tcpStreamFactory struct {

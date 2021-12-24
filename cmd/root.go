@@ -5,8 +5,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	_ "github.com/sparta142/goblade/v2/ffxiv"
 )
 
 var verbose = false

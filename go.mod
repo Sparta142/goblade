@@ -1,4 +1,4 @@
-module github.com/sparta142/goblade/v2
+module github.com/sparta142/goblade
 
 go 1.17
 

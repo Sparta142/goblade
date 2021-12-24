@@ -11,7 +11,7 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/reassembly"
-	"github.com/sparta142/goblade/v2/ffxiv"
+	"github.com/sparta142/goblade/ffxiv"
 )
 
 // BPF filter that selects known FFXIV ports and game server subnets.
