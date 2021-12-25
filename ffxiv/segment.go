@@ -15,6 +15,19 @@ const (
 	SegmentServerKeepAlive = SegmentType(8)
 )
 
+func (s SegmentType) String() string {
+	switch s {
+	case SegmentIpc:
+		return "Ipc"
+	case SegmentClientKeepAlive:
+		return "ClientKeepAlive"
+	case SegmentServerKeepAlive:
+		return "ServerKeepAlive"
+	default:
+		return fmt.Sprint(uint16(s))
+	}
+}
+
 var (
 	segmentHeaderSize = int(unsafe.Sizeof(segmentHeader{}))
 	ipcHeaderSize     = int(unsafe.Sizeof(ipcHeader{}))
