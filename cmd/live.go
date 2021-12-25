@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -12,6 +11,9 @@ import (
 	"github.com/sparta142/goblade/net"
 	"github.com/spf13/cobra"
 )
+
+// Flag indicating that a network interface is loopback.
+const pcapIfLoopback = uint32(0x00000001)
 
 var errNoDefaultInterface = errors.New("no default interface found")
 
@@ -23,23 +25,23 @@ var liveCmd = &cobra.Command{
 	Args:                  cobra.MaximumNArgs(1),
 	DisableFlagsInUseLine: true,
 	RunE: func(_ *cobra.Command, args []string) error {
-		var device string
+		var ifname string
 
 		if len(args) == 0 {
 			var err error
-			device, err = getDefaultDeviceName()
+			ifname, err = getDefaultInterfaceName()
 
 			if err != nil {
 				return err
 			}
 
-			log.Infof("Capturing on default device: %s", device)
+			log.Infof("Capturing on default device: %s", ifname)
 		} else {
-			device = args[0]
-			log.Infof("Capturing on specified device: %s", device)
+			ifname = args[0]
+			log.Infof("Capturing on specified device: %s", ifname)
 		}
 
-		handle, err := pcap.OpenLive(device, 2048, promiscuous, pcap.BlockForever)
+		handle, err := pcap.OpenLive(ifname, 2048, promiscuous, pcap.BlockForever)
 		if err != nil {
 			return err
 		}
@@ -53,7 +55,8 @@ var liveCmd = &cobra.Command{
 	},
 }
 
-func getDefaultDeviceName() (string, error) {
+// Gets the name of the non-loopback network interface for the default gateway.
+func getDefaultInterfaceName() (string, error) {
 	ip, err := gateway.DiscoverInterface()
 	if err != nil {
 		return "", err
@@ -66,7 +69,7 @@ func getDefaultDeviceName() (string, error) {
 
 	for _, iface := range devs {
 		for _, addr := range iface.Addresses {
-			if ip.Equal(addr.IP) {
+			if ip.Equal(addr.IP) && (iface.Flags&pcapIfLoopback) == 0 {
 				return iface.Name, nil
 			}
 		}
