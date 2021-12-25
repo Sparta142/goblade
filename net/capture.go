@@ -74,8 +74,8 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundl
 				net := packet.NetworkLayer()
 
 				if err := tcp.SetNetworkLayerForChecksum(net); err != nil {
+					// This is probably not a fatal error for our purposes
 					log.WithError(err).Warn("Failed to set network layer for checksum")
-					return
 				}
 
 				assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
