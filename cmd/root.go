@@ -42,5 +42,11 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", verbose, "Log more information to stderr")
+	rootCmd.PersistentFlags().BoolVarP(
+		&verbose,
+		"verbose",
+		"v",
+		verbose,
+		"Log more information to stderr",
+	)
 }

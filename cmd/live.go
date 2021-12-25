@@ -82,5 +82,6 @@ func init() {
 		&promiscuous,
 		"promiscuous",
 		false,
-		"capture all network traffic instead of just this computer's")
+		"capture all network traffic instead of just this computer's",
+	)
 }
