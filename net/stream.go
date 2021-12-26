@@ -54,7 +54,7 @@ func (stream *ffxivStream) Accept(
 	dir reassembly.TCPFlowDirection,
 	nextSeq reassembly.Sequence,
 	start *bool,
-	ac reassembly.AssemblerContext,
+	_ reassembly.AssemblerContext,
 ) bool {
 	if !stream.fsm.CheckState(tcp, dir) {
 		return false // Failed TCP state check
@@ -68,7 +68,7 @@ func (stream *ffxivStream) Accept(
 	return true
 }
 
-func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, ac reassembly.AssemblerContext) {
+func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.AssemblerContext) {
 	available, _ := sg.Lengths()
 	if available == 0 {
 		return
@@ -88,7 +88,7 @@ func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, ac reassem
 	half.w.Write(p)
 }
 
-func (stream *ffxivStream) ReassemblyComplete(ac reassembly.AssemblerContext) bool {
+func (stream *ffxivStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
 	log.Debugf("Closing stream %v", stream)
 	stream.toClient.w.Close()
 	stream.toServer.w.Close()
