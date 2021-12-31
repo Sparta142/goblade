@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/djherbis/buffer"
 	"github.com/djherbis/nio/v3"
@@ -28,7 +29,7 @@ type ffxivHalfStream struct {
 	bundles          chan<- ffxiv.Bundle
 
 	// Whether the reassembler missed a TCP segment
-	lostData bool
+	lostData atomic.Value
 
 	r *nio.PipeReader
 	w *nio.PipeWriter
@@ -38,11 +39,11 @@ func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, bundles chan<- ffxiv.Bu
 	log.Debugf("Creating half stream for %s->%s", srcPort, dstPort)
 
 	hs := ffxivHalfStream{
-		srcPort:  srcPort,
-		dstPort:  dstPort,
-		bundles:  bundles,
-		lostData: false,
+		srcPort: srcPort,
+		dstPort: dstPort,
+		bundles: bundles,
 	}
+	hs.lostData.Store(false)
 
 	hs.r, hs.w = nio.Pipe(buffer.New(4 * 1024)) // 4 KiB
 	return hs
@@ -78,7 +79,7 @@ func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassemb
 	half := stream.getHalf(direction)
 
 	if skip > 0 {
-		half.lostData = true
+		half.lostData.Store(true)
 		log.Warnf("Lost %d bytes in stream", skip)
 		return
 	}
@@ -141,8 +142,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	//        an error of some sort after a sequence of completely invalid bundles.
 	//	   3) The entire bundle as a whole was sent as one segment, and was completely lost.
 	//		  This will also *not* cause any issues with misinterpreting the data stream.
-	if hs.lostData {
-		hs.lostData = false
+	if hs.lostData.Swap(false) == true {
 		log.Warnf("Discarding %d bytes in scanner as a safety measure", len(data))
 		return len(data), nil, nil
 	}
