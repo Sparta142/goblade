@@ -71,7 +71,7 @@ type bundleHeader struct {
 }
 
 func (h *bundleHeader) UnmarshalBinary(data []byte) error {
-	if len(data) < 34 {
+	if len(data) < int(bundleHeaderSize) {
 		return ErrNotEnoughData
 	}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/gopacket/pcap"
 	"github.com/jackpal/gateway"
+	"github.com/sparta142/goblade/ffxiv"
 	"github.com/sparta142/goblade/net"
 	"github.com/spf13/cobra"
 )
@@ -47,10 +48,7 @@ var liveCmd = &cobra.Command{
 		}
 		defer handle.Close()
 
-		for bnd := range net.Capture(handle) {
-			fmt.Printf("%v (latency = %s)\n", bnd, time.Since(bnd.Time())) // TODO
-		}
-
+		handlePackets(handle)
 		return nil
 	},
 }
@@ -76,6 +74,32 @@ func getDefaultInterfaceName() (string, error) {
 	}
 
 	return "", errNoDefaultInterface
+}
+
+func handlePackets(handle *pcap.Handle) {
+	table, ok := ffxiv.GetOpcodeTable(ffxiv.RegionGlobal)
+	if !ok {
+		log.Fatal("Failed to load global opcode table")
+	}
+
+	bundles := make(chan ffxiv.Bundle, 100)
+	go net.Capture(handle, bundles)
+
+	for bnd := range bundles {
+		fmt.Printf("* Bundle (%d bytes, at %s)\n", bnd.Length, bnd.Time())
+
+		for i, seg := range bnd.Segments {
+			fmt.Printf("    [%d] Segment - %s (%d bytes, 0x%X -> 0x%X)\n", i+1, seg.Type, seg.Length, seg.Source, seg.Target)
+
+			if ipc, ok := seg.Payload.(*ffxiv.Ipc); ok {
+				fmt.Printf(
+					"    ServerZone: %q | ClientZone: %q\n",
+					table.GetOpcodeName(ffxiv.ServerZoneIpcType, int(ipc.Type)),
+					table.GetOpcodeName(ffxiv.ClientZoneIpcType, int(ipc.Type)),
+				)
+			}
+		}
+	}
 }
 
 func init() {

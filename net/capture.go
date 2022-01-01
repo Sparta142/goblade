@@ -26,76 +26,73 @@ const flushInterval = 1 * time.Minute
 // How old the data in an out-of-order TCP stream should be before flushing that stream.
 const flushStreamAge = 3 * time.Minute
 
-func Capture(handle *pcap.Handle) <-chan ffxiv.Bundle {
-	return CaptureContext(context.Background(), handle)
+func Capture(handle *pcap.Handle, out chan<- ffxiv.Bundle) {
+	CaptureContext(context.Background(), handle, out)
 }
 
-func CaptureContext(ctx context.Context, handle *pcap.Handle) <-chan ffxiv.Bundle {
-	out := make(chan ffxiv.Bundle)
+func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.Bundle) {
+	// Configure pcap handle
+	handle.SetBPFFilter(bpfFilter())
+	handle.SetDirection(pcap.DirectionInOut)
 
-	go func() {
-		// Configure pcap handle
-		handle.SetBPFFilter(bpfFilter())
-		handle.SetDirection(pcap.DirectionInOut)
+	// Setup packet source
+	src := gopacket.NewPacketSource(handle, handle.LinkType())
+	src.NoCopy = true
+	src.Lazy = true
 
-		// Setup packet source
-		src := gopacket.NewPacketSource(handle, handle.LinkType())
-		src.NoCopy = true
-		src.Lazy = true
+	// Create TCP reassembler
+	factory := &tcpStreamFactory{out: out}
+	pool := reassembly.NewStreamPool(factory)
+	assembler := reassembly.NewAssembler(pool)
+	assembler.MaxBufferedPagesPerConnection = 512
+	assembler.MaxBufferedPagesTotal = 2048
 
-		// Create TCP reassembler
-		factory := &tcpStreamFactory{out: out}
-		pool := reassembly.NewStreamPool(factory)
-		assembler := reassembly.NewAssembler(pool)
-		assembler.MaxBufferedPagesPerConnection = 512
-		assembler.MaxBufferedPagesTotal = 2048
+	// Ticker to flush the reassembler periodically
+	ticker := time.NewTicker(flushInterval)
 
-		// Ticker to flush the reassembler periodically
-		ticker := time.NewTicker(flushInterval)
+	defer func() {
+		log.Debug("Flushing all streams")
+		flushed := assembler.FlushAll()
+		log.WithField("count", flushed).Info("Flushed/closed all streams")
 
-		defer func() {
-			log.Debugf("Closing all streams")
-			closed := assembler.FlushAll()
-			log.Infof("Closed %d streams", closed)
-
-			factory.Wait()
-			close(out)
-		}()
-
-		for {
-			select {
-			case packet, ok := <-src.Packets():
-				if !ok {
-					log.Info("No more packets to handle")
-					return
-				}
-
-				tcp := packet.TransportLayer().(*layers.TCP)
-				net := packet.NetworkLayer()
-
-				if err := tcp.SetNetworkLayerForChecksum(net); err != nil {
-					// This is probably not a fatal error for our purposes
-					log.WithError(err).Warn("Failed to set network layer for checksum")
-				}
-
-				assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
-
-			case <-ticker.C:
-				log.Debugf("Starting periodic flush")
-
-				flushed, closed := assembler.FlushWithOptions(reassembly.FlushOptions{
-					T: time.Now().Add(-flushStreamAge),
-				})
-
-				log.Debugf("Flushed %d streams, closed %d", flushed, closed)
-
-			case <-ctx.Done():
-				return
-			}
-		}
+		factory.Wait()
+		close(out)
 	}()
 
-	return out
+	for {
+		select {
+		case packet, ok := <-src.Packets():
+			if !ok {
+				log.Info("No more packets available")
+				return
+			}
+
+			tcp := packet.TransportLayer().(*layers.TCP)
+			net := packet.NetworkLayer()
+
+			if err := tcp.SetNetworkLayerForChecksum(net); err != nil {
+				// This is probably not a fatal error for our purposes
+				log.WithError(err).Warn("Failed to set network layer for checksum")
+			}
+
+			assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
+
+		case <-ticker.C:
+			log.Debug("Starting periodic stream maintenance")
+
+			flushed, closed := assembler.FlushWithOptions(reassembly.FlushOptions{
+				T: time.Now().Add(-flushStreamAge),
+			})
+
+			log.WithFields(log.Fields{
+				"flushed": flushed,
+				"closed":  closed,
+			}).Debug("Stream maintenance finished")
+
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 type captureContext struct {
