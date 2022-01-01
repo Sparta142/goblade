@@ -2,7 +2,6 @@ package net
 
 import (
 	"bufio"
-	"bytes"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -61,7 +60,7 @@ func (stream *ffxivStream) Accept(
 		return false // Failed TCP state check
 	}
 
-	if err := stream.optCheck.Accept(tcp, ci, dir, nextSeq, start); err != nil {
+	if stream.optCheck.Accept(tcp, ci, dir, nextSeq, start) != nil {
 		return false // Failed options check
 	}
 
@@ -119,8 +118,7 @@ func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 	var bundle ffxiv.Bundle
 
 	for scanner.Scan() {
-		r := bytes.NewReader(scanner.Bytes())
-		if err := ffxiv.ReadBundle(r, &bundle); err != nil {
+		if err := bundle.UnmarshalBinary(scanner.Bytes()); err != nil {
 			log.WithError(err).Fatal("Failed to read bundle") // TODO: Handle gracefully
 		}
 
@@ -140,7 +138,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	//		  will misinterpret the remaining data as part of the original bundle.
 	//		  This can cause major issues due to "unaligned" bundle decoding and probably
 	//        an error of some sort after a sequence of completely invalid bundles.
-	//	   3) The entire bundle as a whole was sent as one segment, and was completely lost.
+	//	   3) The entire bundle as a whole was sent as one TCP segment, and was completely lost.
 	//		  This will also *not* cause any issues with misinterpreting the data stream.
 	if hs.lostData.Swap(false) == true {
 		log.Warnf("Discarding %d bytes in scanner as a safety measure", len(data))

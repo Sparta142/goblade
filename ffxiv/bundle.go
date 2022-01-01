@@ -1,6 +1,7 @@
 package ffxiv
 
 import (
+	"bytes"
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
@@ -30,11 +31,13 @@ var (
 	ErrBadMagicString = errors.New("ffxiv: bad magic string")
 	ErrBadCompression = errors.New("ffxiv: bad compression type")
 	ErrBadSegmentType = errors.New("ffxiv: bad segment type")
+	ErrNotEnoughData  = errors.New("ffxiv: not enough data")
 )
 
 var (
 	bundleLengthOffset = unsafe.Offsetof(bundleHeader{}.Length)
 	bundleLengthSize   = unsafe.Sizeof(bundleHeader{}.Length)
+	bundleHeaderSize   = unsafe.Sizeof(bundleHeader{})
 )
 
 var byteOrder = binary.LittleEndian
@@ -67,39 +70,53 @@ type bundleHeader struct {
 	_ [6]byte
 }
 
+func (h *bundleHeader) UnmarshalBinary(data []byte) error {
+	if len(data) < 34 {
+		return ErrNotEnoughData
+	}
+
+	copy(h.Magic[:], data)
+
+	// Validate magic string in Bundle header
+	if s := string(h.Magic[:]); s != IpcMagicString && s != KeepAliveMagicString {
+		return ErrBadMagicString
+	}
+
+	h.Epoch = byteOrder.Uint64(data[16:24])
+	h.Length = byteOrder.Uint16(data[24:26])
+	h.ConnectionType = byteOrder.Uint16(data[28:30])
+	h.SegmentCount = byteOrder.Uint16(data[30:32])
+	h.Encoding = EncodingType(data[32])
+	h.Compression = CompressionType(data[33])
+
+	return nil
+}
+
 type Bundle struct {
 	bundleHeader
 	Segments []Segment
 }
 
-// Reads a single Bundle from data into bundle.
-// Returns the number of bytes read or the error encountered.
-func ReadBundle(rd io.Reader, b *Bundle) error {
+func (b *Bundle) UnmarshalBinary(data []byte) error {
 	// Read the Bundle header
-	if err := binary.Read(rd, byteOrder, &b.bundleHeader); err != nil {
-		return fmt.Errorf("read bundle header: %w", err)
+	if err := b.bundleHeader.UnmarshalBinary(data); err != nil {
+		return err
 	}
 
-	// Validate magic string in Bundle header.
-	// Note: It is a programming error for the magic string to be invalid.
-	if s := string(b.Magic[:]); s != IpcMagicString && s != KeepAliveMagicString {
-		return ErrBadMagicString
-	}
-
-	// A reader for the decompressed payload, which is the exact
-	// same reader if the payload isn't compressed to begin with.
-	var rr io.Reader
+	// A reader for the decompressed payload, which is just a reader
+	// for the original payload if it isn't compressed to begin with.
+	var r io.Reader
 
 	switch b.Compression {
 	case CompressionNone:
-		rr = rd
+		r = bytes.NewReader(data[bundleHeaderSize:])
 	case CompressionZlib:
-		zr, err := zlib.NewReader(rd)
+		zr, err := zlib.NewReader(bytes.NewReader(data[bundleHeaderSize:]))
 		if err != nil {
 			return err
 		}
 		defer zr.Close()
-		rr = zr
+		r = zr
 	default:
 		return ErrBadCompression
 	}
@@ -108,7 +125,7 @@ func ReadBundle(rd io.Reader, b *Bundle) error {
 	b.Segments = make([]Segment, b.SegmentCount)
 
 	for i := 0; i < len(b.Segments); i++ {
-		if err := ReadSegment(rr, &b.Segments[i]); err != nil {
+		if err := ReadSegment(r, &b.Segments[i]); err != nil {
 			return fmt.Errorf("read segment: %w", err)
 		}
 	}
