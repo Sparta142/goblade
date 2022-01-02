@@ -2,13 +2,13 @@ package ffxiv
 
 import (
 	"bytes"
-	"compress/zlib"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"time"
-	"unsafe"
+
+	"github.com/klauspost/compress/zlib"
 )
 
 type EncodingType uint8
@@ -19,47 +19,43 @@ const (
 	CompressionZlib = CompressionType(1)
 )
 
-const (
-	// Magic string indicating that a Bundle contains IPC segments.
-	IpcMagicString = "\x52\x52\xa0\x41\xff\x5d\x46\xe2\x7f\x2a\x64\x4d\x7b\x99\xc4\x75"
+var (
+	// Magic bytes indicating that a Bundle contains IPC segments.
+	IpcMagicBytes = []byte("\x52\x52\xa0\x41\xff\x5d\x46\xe2\x7f\x2a\x64\x4d\x7b\x99\xc4\x75")
 
-	// Magic string indicating that a Bundle contains keep-alive segments.
-	KeepAliveMagicString = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	// Magic bytes indicating that a Bundle contains keep-alive segments.
+	KeepAliveMagicBytes = []byte("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 )
 
 var (
-	ErrBadMagicString = errors.New("ffxiv: bad magic string")
+	ErrBadMagicBytes  = errors.New("ffxiv: bad magic bytes")
 	ErrBadCompression = errors.New("ffxiv: bad compression type")
 	ErrBadSegmentType = errors.New("ffxiv: bad segment type")
 	ErrNotEnoughData  = errors.New("ffxiv: not enough data")
+	ErrTooMuchData    = errors.New("ffxiv: too much data in bundle slice")
 )
 
-var (
-	bundleLengthOffset = unsafe.Offsetof(bundleHeader{}.Length)
-	bundleLengthSize   = unsafe.Sizeof(bundleHeader{}.Length)
-	bundleHeaderSize   = unsafe.Sizeof(bundleHeader{})
+const (
+	bundleLengthOffset = 24
+	bundleLengthSize   = 2 // sizeof(uint16)
+	bundleHeaderSize   = 40
 )
 
 var byteOrder = binary.LittleEndian
 
-type bundleHeader struct {
-	// Magic string header - all IPC bundles share the same magic string
+type Bundle struct {
+	// Magic bytes header - all IPC bundles share the same magic bytes
 	// and all keep-alive bundles have a magic string of all null bytes.
 	Magic [16]byte
 
 	// The number of milliseconds since the Unix epoch time.
 	Epoch uint64
 
-	// The total length of the bundle, in bytes (including this header).
+	// The total length of the bundle, in bytes (including the header).
 	Length uint16
-
-	_ [2]byte
 
 	// The connection type. Usually 0.
 	ConnectionType uint16
-
-	// The number of segments in the bundle.
-	SegmentCount uint16
 
 	// The encoding type of the bundle payload.
 	Encoding EncodingType
@@ -67,78 +63,68 @@ type bundleHeader struct {
 	// The compression type of the bundle payload.
 	Compression CompressionType
 
-	_ [6]byte
-}
-
-func (h *bundleHeader) UnmarshalBinary(data []byte) error {
-	if len(data) < int(bundleHeaderSize) {
-		return ErrNotEnoughData
-	}
-
-	copy(h.Magic[:], data)
-
-	// Validate magic string in Bundle header
-	if s := string(h.Magic[:]); s != IpcMagicString && s != KeepAliveMagicString {
-		return ErrBadMagicString
-	}
-
-	h.Epoch = byteOrder.Uint64(data[16:24])
-	h.Length = byteOrder.Uint16(data[24:26])
-	h.ConnectionType = byteOrder.Uint16(data[28:30])
-	h.SegmentCount = byteOrder.Uint16(data[30:32])
-	h.Encoding = EncodingType(data[32])
-	h.Compression = CompressionType(data[33])
-
-	return nil
-}
-
-type Bundle struct {
-	bundleHeader
 	Segments []Segment
 }
 
 func (b *Bundle) UnmarshalBinary(data []byte) error {
-	// Read the Bundle header
-	if err := b.bundleHeader.UnmarshalBinary(data); err != nil {
-		return err
+	if len(data) < bundleHeaderSize {
+		return ErrNotEnoughData
 	}
 
-	// A reader for the decompressed payload, which is just a reader
-	// for the original payload if it isn't compressed to begin with.
-	var r io.Reader
+	// Read the Bundle header
+	copy(b.Magic[:], data)
+
+	if !bytes.Equal(b.Magic[:], IpcMagicBytes) && !bytes.Equal(b.Magic[:], KeepAliveMagicBytes) {
+		return ErrBadMagicBytes
+	}
+
+	b.Epoch = byteOrder.Uint64(data[16:24])
+	b.Length = byteOrder.Uint16(data[24:26])
+	b.ConnectionType = byteOrder.Uint16(data[28:30])
+	b.Encoding = EncodingType(data[32])
+	b.Compression = CompressionType(data[33])
+
+	// Read the Bundle payload
+	var payloadData []byte
 
 	switch b.Compression {
 	case CompressionNone:
-		r = bytes.NewReader(data[bundleHeaderSize:])
+		payloadData = data[bundleHeaderSize:]
+
 	case CompressionZlib:
 		zr, err := zlib.NewReader(bytes.NewReader(data[bundleHeaderSize:]))
 		if err != nil {
-			return err
+			return fmt.Errorf("create zlib reader: %w", err)
 		}
 		defer zr.Close()
-		r = zr
+
+		if payloadData, err = ioutil.ReadAll(zr); err != nil {
+			return fmt.Errorf("read all from zlib reader: %w", err)
+		}
+
 	default:
 		return ErrBadCompression
 	}
 
 	// Read all segments from the decompressed payload
-	b.Segments = make([]Segment, b.SegmentCount)
+	segmentCount := byteOrder.Uint16(data[30:32])
+	b.Segments = make([]Segment, segmentCount)
 
-	for i := 0; i < len(b.Segments); i++ {
-		if err := ReadSegment(r, &b.Segments[i]); err != nil {
+	for i := 0; i < int(segmentCount); i++ {
+		if err := b.Segments[i].UnmarshalBinary(payloadData); err != nil {
 			return fmt.Errorf("read segment: %w", err)
 		}
+
+		// Advance payloadData by the size of the just-read Segment
+		payloadData = payloadData[b.Segments[i].Length:]
+	}
+
+	// Sanity check: the entire payload should have been consumed
+	if len(payloadData) != 0 {
+		return ErrTooMuchData
 	}
 
 	return nil
-}
-
-func ReadBundleLength(data []byte) int {
-	if len(data) < int(bundleLengthOffset+bundleLengthSize) {
-		return -1
-	}
-
-	return int(byteOrder.Uint16(data[bundleLengthOffset:]))
 }
 
 func (b *Bundle) Time() time.Time {
@@ -147,4 +133,12 @@ func (b *Bundle) Time() time.Time {
 
 func (b *Bundle) IsCompressed() bool {
 	return b.Compression != CompressionNone
+}
+
+func PeekBundleLength(data []byte) int {
+	if len(data) < int(bundleLengthOffset+bundleLengthSize) {
+		return -1
+	}
+
+	return int(byteOrder.Uint16(data[bundleLengthOffset:]))
 }

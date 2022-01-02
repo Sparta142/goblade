@@ -2,7 +2,7 @@ package net
 
 import (
 	"bufio"
-	"strings"
+	"bytes"
 	"sync"
 	"sync/atomic"
 
@@ -145,8 +145,8 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 		return len(data), nil, nil
 	}
 
-	// Find the magic string
-	i := indexFirst(string(data), ffxiv.IpcMagicString, ffxiv.KeepAliveMagicString)
+	// Find the magic bytes in `data`
+	i := indexFirst(data, ffxiv.IpcMagicBytes, ffxiv.KeepAliveMagicBytes)
 	if i == -1 {
 		return 0, nil, nil
 	}
@@ -154,7 +154,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	// The chunk of `data` that starts with the magic string (found above)
 	chunk := data[i:]
 
-	length := ffxiv.ReadBundleLength(chunk) // The (probable) length of the Bundle
+	length := ffxiv.PeekBundleLength(chunk) // The (probable) length of the Bundle
 	if length > len(chunk) || length == -1 {
 		return i, nil, nil
 	}
@@ -162,11 +162,12 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	return i + length, chunk[:length], nil
 }
 
-// Get the index of the earliest occurrence of any substring in substrs.
-func indexFirst(s string, substrs ...string) int {
+// Get the index of the earliest instance of any slice in seps,
+// or -1 if no slice in seps is present in s.
+func indexFirst(s []byte, seps ...[]byte) int {
 	i := -1
-	for _, substr := range substrs {
-		index := strings.Index(s, substr)
+	for _, sep := range seps {
+		index := bytes.Index(s, sep)
 
 		if index != -1 && (i == -1 || index < i) {
 			i = index

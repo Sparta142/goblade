@@ -1,10 +1,15 @@
 package ffxiv
 
 import (
-	"encoding/binary"
 	"fmt"
-	"io"
-	"unsafe"
+
+	log "github.com/sirupsen/logrus"
+)
+
+const (
+	segmentHeaderSize = 16
+	ipcHeaderSize     = 16
+	keepAliveSize     = 8
 )
 
 type SegmentType uint16
@@ -28,13 +33,8 @@ func (s SegmentType) String() string {
 	}
 }
 
-var (
-	segmentHeaderSize = int(unsafe.Sizeof(segmentHeader{}))
-	ipcHeaderSize     = int(unsafe.Sizeof(ipcHeader{}))
-)
-
-type segmentHeader struct {
-	// The total length of the segment, in bytes (including this header).
+type Segment struct {
+	// The total length of the segment, in bytes (including the header).
 	Length uint32
 
 	// The ID of the actor that sent the segment.
@@ -46,30 +46,62 @@ type segmentHeader struct {
 	// The segment type. Usually SegmentIpc.
 	Type SegmentType
 
-	_ [2]byte
-}
-
-type Segment struct {
-	segmentHeader
 	Payload interface{}
 }
 
-func (s *Segment) payloadLength() int {
-	return int(s.segmentHeader.Length) - segmentHeaderSize
-}
+func (s *Segment) UnmarshalBinary(data []byte) error {
+	if len(data) < segmentHeaderSize {
+		return ErrNotEnoughData
+	}
 
-type ipcHeader struct {
-	Magic    uint16
-	Type     uint16
-	_        [2]byte
-	ServerId uint16
-	Epoch    uint32
-	_        [4]byte
+	// Read the Segment header
+	s.Length = byteOrder.Uint32(data[0:4])
+	s.Source = byteOrder.Uint32(data[4:8])
+	s.Target = byteOrder.Uint32(data[8:12])
+	s.Type = SegmentType(byteOrder.Uint16(data[12:14]))
+
+	// Decode the Segment payload depending on the type
+	payloadData := data[segmentHeaderSize:s.Length]
+
+	switch s.Type {
+	case SegmentIpc:
+		s.Payload = &Ipc{}
+		s.Payload.(*Ipc).UnmarshalBinary(payloadData)
+
+	case SegmentClientKeepAlive, SegmentServerKeepAlive:
+		s.Payload = &KeepAlive{}
+		s.Payload.(*KeepAlive).UnmarshalBinary(payloadData)
+
+	default:
+		log.Debugf("Segment has unknown type %d; storing payload as []byte", s.Type)
+		s.Payload = payloadData
+	}
+
+	return nil
 }
 
 type Ipc struct {
-	ipcHeader
+	Magic    uint16
+	Type     uint16
+	ServerId uint16
+	Epoch    uint32
+
 	Data []byte
+}
+
+func (i *Ipc) UnmarshalBinary(data []byte) error {
+	if len(data) < ipcHeaderSize {
+		return ErrNotEnoughData
+	}
+
+	// Read the IPC header
+	i.Magic = byteOrder.Uint16(data[0:2])
+	i.Type = byteOrder.Uint16(data[2:4])
+	i.ServerId = byteOrder.Uint16(data[6:8])
+	i.Epoch = byteOrder.Uint32(data[8:12])
+
+	i.Data = data[16:]
+	return nil
 }
 
 type KeepAlive struct {
@@ -77,39 +109,12 @@ type KeepAlive struct {
 	Epoch uint32
 }
 
-func ReadSegment(rd io.Reader, s *Segment) error {
-	// Read the Segment header
-	if err := binary.Read(rd, byteOrder, &s.segmentHeader); err != nil {
-		return fmt.Errorf("read segment header: %w", err)
+func (k *KeepAlive) UnmarshalBinary(data []byte) error {
+	if len(data) < keepAliveSize {
+		return ErrNotEnoughData
 	}
 
-	// Decode the Segment payload depending on the type
-	switch s.segmentHeader.Type {
-	case SegmentIpc:
-		ipc := &Ipc{}
-		if err := binary.Read(rd, byteOrder, &ipc.ipcHeader); err != nil {
-			return fmt.Errorf("read ipc header: %w", err)
-		}
-
-		ipc.Data = make([]byte, s.payloadLength()-ipcHeaderSize)
-		if _, err := io.ReadFull(rd, ipc.Data); err != nil {
-			return fmt.Errorf("read ipc data: %w", err)
-		}
-
-		s.Payload = ipc
-	case SegmentClientKeepAlive, SegmentServerKeepAlive:
-		keepAlive := &KeepAlive{}
-		if err := binary.Read(rd, byteOrder, keepAlive); err != nil {
-			return fmt.Errorf("read keep-alive: %w", err)
-		}
-		s.Payload = keepAlive
-	default:
-		data := make([]byte, s.payloadLength())
-		if _, err := io.ReadFull(rd, data); err != nil {
-			return fmt.Errorf("read raw segment: %w", err)
-		}
-		s.Payload = data
-	}
-
+	k.Id = byteOrder.Uint32(data[0:4])
+	k.Id = byteOrder.Uint32(data[4:8])
 	return nil
 }
