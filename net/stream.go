@@ -19,7 +19,6 @@ import (
 type ffxivStream struct {
 	net, transport     gopacket.Flow
 	fsm                reassembly.TCPSimpleFSM
-	optCheck           reassembly.TCPOptionCheck
 	toClient, toServer ffxivHalfStream
 }
 
@@ -57,11 +56,8 @@ func (stream *ffxivStream) Accept(
 	_ reassembly.AssemblerContext,
 ) bool {
 	if !stream.fsm.CheckState(tcp, dir) {
-		return false // Failed TCP state check
-	}
-
-	if stream.optCheck.Accept(tcp, ci, dir, nextSeq, start) != nil {
-		return false // Failed options check
+		log.Debug("Packet failed state check, ignoring")
+		return false
 	}
 
 	*start = true
@@ -119,14 +115,14 @@ func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 
 	for scanner.Scan() {
 		if err := bundle.UnmarshalBinary(scanner.Bytes()); err != nil {
-			log.WithError(err).Fatal("Failed to read bundle") // TODO: Handle gracefully
+			log.WithError(err).Fatal("Failed to read bundle")
 		}
 
 		hs.bundles <- bundle
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.WithError(err).Error("Failed while scanning for bundle") // TODO: Should this crash?
+		log.WithError(err).Fatal("Failed while scanning for bundle")
 	}
 }
 
@@ -141,7 +137,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	//	   3) The entire bundle as a whole was sent as one TCP segment, and was completely lost.
 	//		  This will also *not* cause any issues with misinterpreting the data stream.
 	if hs.lostData.Swap(false) == true {
-		log.Warnf("Discarding %d bytes in scanner as a safety measure", len(data))
+		log.Warnf("Discarding all %d bytes in scanner as a safety measure", len(data))
 		return len(data), nil, nil
 	}
 

@@ -21,7 +21,6 @@ func (fac *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.TCP, 
 		fsm: *reassembly.NewTCPSimpleFSM(reassembly.TCPSimpleFSMOptions{
 			SupportMissingEstablishment: true,
 		}),
-		optCheck: reassembly.NewTCPOptionCheck(),
 		toClient: newFfxivHalfStream(tcp.SrcPort, tcp.DstPort, fac.out),
 		toServer: newFfxivHalfStream(tcp.DstPort, tcp.SrcPort, fac.out),
 	}
