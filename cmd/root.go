@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/inconshreveable/mousetrap"
@@ -34,8 +33,8 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	// Default to executing "goblade live" if opened from Explorer
 	cobra.MousetrapHelpText = ""
-	if mousetrap.StartedByExplorer() && len(os.Args) == 1 {
-		os.Args = append(os.Args, "live")
+	if mousetrap.StartedByExplorer() {
+		rootCmd.SetArgs([]string{"live"})
 	}
 
 	rootCmd.Execute()
