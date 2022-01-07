@@ -46,24 +46,24 @@ var byteOrder = binary.LittleEndian
 type Bundle struct {
 	// Magic bytes header - all IPC bundles share the same magic bytes
 	// and all keep-alive bundles have a magic string of all null bytes.
-	Magic [16]byte
+	Magic [16]byte `json:"-"`
 
 	// The number of milliseconds since the Unix epoch time.
-	Epoch uint64
+	Epoch uint64 `json:"epoch"`
 
 	// The total length of the bundle, in bytes (including the header).
-	Length uint16
+	Length uint16 `json:"length"`
 
 	// The connection type. Usually 0.
-	ConnectionType uint16
+	ConnectionType uint16 `json:"connectionType"`
 
 	// The encoding type of the bundle payload.
-	Encoding EncodingType
+	Encoding EncodingType `json:"-"`
 
 	// The compression type of the bundle payload.
-	Compression CompressionType
+	Compression CompressionType `json:"-"`
 
-	Segments []Segment
+	Segments []Segment `json:"segments"`
 }
 
 func (b *Bundle) UnmarshalBinary(data []byte) error {

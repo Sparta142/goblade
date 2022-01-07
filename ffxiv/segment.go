@@ -35,18 +35,18 @@ func (s SegmentType) String() string {
 
 type Segment struct {
 	// The total length of the segment, in bytes (including the header).
-	Length uint32
+	Length uint32 `json:"-"`
 
 	// The ID of the actor that sent the segment.
-	Source uint32
+	Source uint32 `json:"source"`
 
 	// The ID of the actor that received the segment.
-	Target uint32
+	Target uint32 `json:"target"`
 
 	// The segment type. Usually SegmentIpc.
-	Type SegmentType
+	Type SegmentType `json:"type"`
 
-	Payload interface{}
+	Payload interface{} `json:"payload"`
 }
 
 func (s *Segment) UnmarshalBinary(data []byte) error {
@@ -81,12 +81,12 @@ func (s *Segment) UnmarshalBinary(data []byte) error {
 }
 
 type Ipc struct {
-	Magic    uint16
-	Type     uint16
-	ServerId uint16
-	Epoch    uint32
+	Magic    uint16 `json:"-"`
+	Type     uint16 `json:"type"`
+	ServerId uint16 `json:"serverId"`
+	Epoch    uint32 `json:"epoch"`
 
-	Data []byte
+	Data []byte `json:"data"`
 }
 
 func (i *Ipc) UnmarshalBinary(data []byte) error {
@@ -105,8 +105,8 @@ func (i *Ipc) UnmarshalBinary(data []byte) error {
 }
 
 type KeepAlive struct {
-	Id    uint32
-	Epoch uint32
+	Id    uint32 `json:"id"`
+	Epoch uint32 `json:"epoch"`
 }
 
 func (k *KeepAlive) UnmarshalBinary(data []byte) error {
