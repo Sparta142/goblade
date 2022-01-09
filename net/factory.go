@@ -10,8 +10,8 @@ import (
 )
 
 type tcpStreamFactory struct {
-	out chan<- ffxiv.Bundle
 	wg  sync.WaitGroup
+	out chan<- ffxiv.Bundle
 }
 
 func (fac *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.TCP, ac reassembly.AssemblerContext) reassembly.Stream {

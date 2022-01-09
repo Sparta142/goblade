@@ -23,23 +23,23 @@ type ffxivStream struct {
 }
 
 type ffxivHalfStream struct {
-	srcPort, dstPort layers.TCPPort
-	bundles          chan<- ffxiv.Bundle
-
 	// Whether the reassembler missed a TCP segment
 	lostData atomic.Value
 
 	r *nio.PipeReader
 	w *nio.PipeWriter
+
+	bundles          chan<- ffxiv.Bundle
+	srcPort, dstPort layers.TCPPort
 }
 
 func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
 	log.Debugf("Creating half stream for %s->%s", srcPort, dstPort)
 
 	hs := ffxivHalfStream{
+		bundles: bundles,
 		srcPort: srcPort,
 		dstPort: dstPort,
-		bundles: bundles,
 	}
 	hs.lostData.Store(false)
 

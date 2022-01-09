@@ -19,8 +19,8 @@ type opcodeMapping map[int]string
 
 type OpcodeTable struct {
 	Version string
-	Region  Region
 	Lists   map[IpcType]opcodeMapping
+	Region  Region
 }
 
 const (
@@ -64,11 +64,11 @@ func init() {
 func parseOpcodes() (map[Region]OpcodeTable, error) {
 	type rawOpcodeTable struct {
 		Version string `json:"version"`
-		Region  Region `json:"region"`
 		Lists   map[IpcType][]struct {
 			Name   string `json:"name"`
 			Opcode int    `json:"opcode"`
 		} `json:"lists"`
+		Region Region `json:"region"`
 	}
 
 	// Load the JSON data into memory
@@ -83,8 +83,8 @@ func parseOpcodes() (map[Region]OpcodeTable, error) {
 	for _, rawTable := range rawTables {
 		parsedTable := OpcodeTable{
 			Version: rawTable.Version,
-			Region:  rawTable.Region,
 			Lists:   make(map[IpcType]opcodeMapping, 6),
+			Region:  rawTable.Region,
 		}
 
 		// Convert each IPC type list to a mapping (opcode -> name)
