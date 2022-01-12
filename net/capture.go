@@ -2,7 +2,8 @@ package net
 
 import (
 	"context"
-	"os"
+	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -14,11 +15,11 @@ import (
 	"github.com/sparta142/goblade/ffxiv"
 )
 
-// BPF filter that selects known FFXIV ports and game server subnets.
-const defaultBpfFilter = "tcp and " +
-	"src portrange 49152-65535 and " +
-	"dst portrange 49152-65535 and " +
-	"(net 204.2.229.0/24 or 195.82.50.0/24 or 124.50.157.0/24)"
+// Filters for potential FFXIV ports and known data center networks.
+var bpfFilter = fmt.Sprintf(
+	"tcp and src portrange 49152-65535 and dst portrange 49152-65535 and (net %s)",
+	strings.Join(ffxiv.DataCenterCIDRs[:], " or "),
+)
 
 // How often to attempt to flush TCP connections.
 const flushInterval = 1 * time.Minute
@@ -32,7 +33,7 @@ func Capture(handle *pcap.Handle, out chan<- ffxiv.Bundle) {
 
 func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.Bundle) {
 	// Configure pcap handle
-	handle.SetBPFFilter(bpfFilter())
+	handle.SetBPFFilter(bpfFilter)
 	handle.SetDirection(pcap.DirectionInOut)
 
 	// Setup packet source
@@ -107,15 +108,4 @@ func newCaptureContext(packet gopacket.Packet) *captureContext {
 	return &captureContext{
 		CaptureInfo: packet.Metadata().CaptureInfo,
 	}
-}
-
-// Gets the BPF filter set in the environment variables,
-// or the default filter if none has been set.
-func bpfFilter() string {
-	if expr, present := os.LookupEnv("GOBLADE_BPF"); present {
-		log.WithField("new_bpf", expr).Warn("Default BPF overridden in environment variables")
-		return expr
-	}
-
-	return defaultBpfFilter
 }
