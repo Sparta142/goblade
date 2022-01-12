@@ -50,6 +50,7 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 
 	// Ticker to flush the reassembler periodically
 	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
 
 	defer func() {
 		log.Debug("Flushing all streams")
