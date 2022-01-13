@@ -49,9 +49,9 @@ func newFfxivHalfStream(src, dst string, bundles chan<- ffxiv.Bundle) ffxivHalfS
 
 func (stream *ffxivStream) Accept(
 	tcp *layers.TCP,
-	ci gopacket.CaptureInfo,
+	_ gopacket.CaptureInfo,
 	dir reassembly.TCPFlowDirection,
-	nextSeq reassembly.Sequence,
+	_ reassembly.Sequence,
 	start *bool,
 	_ reassembly.AssemblerContext,
 ) bool {
