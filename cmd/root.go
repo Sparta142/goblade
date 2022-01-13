@@ -5,10 +5,14 @@ import (
 
 	"github.com/inconshreveable/mousetrap"
 	"github.com/sirupsen/logrus"
+	"github.com/sparta142/goblade/ffxiv"
 	"github.com/spf13/cobra"
 )
 
-var verbose = false
+var (
+	verbose = false
+	region  = string(ffxiv.RegionGlobal)
+)
 
 var rootCmd = &cobra.Command{
 	Use:                   "goblade",
@@ -46,6 +50,14 @@ func init() {
 		"verbose",
 		"v",
 		verbose,
-		"Log more information to stderr",
+		"log more information to stderr",
+	)
+
+	rootCmd.PersistentFlags().StringVarP(
+		&region,
+		"region",
+		"r",
+		region,
+		"the opcode region to decode IPCs for",
 	)
 }
