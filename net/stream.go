@@ -17,7 +17,6 @@ import (
 )
 
 type ffxivStream struct {
-	net, transport     gopacket.Flow
 	fsm                reassembly.TCPSimpleFSM
 	toClient, toServer ffxivHalfStream
 }
@@ -29,17 +28,18 @@ type ffxivHalfStream struct {
 	r *nio.PipeReader
 	w *nio.PipeWriter
 
-	bundles          chan<- ffxiv.Bundle
-	srcPort, dstPort layers.TCPPort
+	bundles chan<- ffxiv.Bundle
+
+	Src, Dst string
 }
 
-func newFfxivHalfStream(srcPort, dstPort layers.TCPPort, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
-	log.Debugf("Creating half stream for %s->%s", srcPort, dstPort)
+func newFfxivHalfStream(src, dst string, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
+	log.Debugf("Creating half stream for %s->%s", src, dst)
 
 	hs := ffxivHalfStream{
 		bundles: bundles,
-		srcPort: srcPort,
-		dstPort: dstPort,
+		Src:     src,
+		Dst:     dst,
 	}
 	hs.lostData.Store(false)
 

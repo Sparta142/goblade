@@ -1,6 +1,7 @@
 package net
 
 import (
+	"net"
 	"sync"
 
 	"github.com/google/gopacket"
@@ -14,15 +15,20 @@ type tcpStreamFactory struct {
 	out chan<- ffxiv.Bundle
 }
 
-func (fac *tcpStreamFactory) New(net, transport gopacket.Flow, tcp *layers.TCP, ac reassembly.AssemblerContext) reassembly.Stream {
+func (fac *tcpStreamFactory) New(
+	netFlow, transport gopacket.Flow,
+	_ *layers.TCP,
+	_ reassembly.AssemblerContext,
+) reassembly.Stream {
+	src := net.JoinHostPort(netFlow.Src().String(), transport.Src().String())
+	dst := net.JoinHostPort(netFlow.Dst().String(), transport.Dst().String())
+
 	stream := &ffxivStream{
-		net:       net,
-		transport: transport,
 		fsm: *reassembly.NewTCPSimpleFSM(reassembly.TCPSimpleFSMOptions{
 			SupportMissingEstablishment: true,
 		}),
-		toClient: newFfxivHalfStream(tcp.SrcPort, tcp.DstPort, fac.out),
-		toServer: newFfxivHalfStream(tcp.DstPort, tcp.SrcPort, fac.out),
+		toClient: newFfxivHalfStream(src, dst, fac.out),
+		toServer: newFfxivHalfStream(dst, src, fac.out),
 	}
 
 	fac.wg.Add(2)
