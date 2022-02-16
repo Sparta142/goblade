@@ -71,7 +71,7 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 		return ErrNotEnoughData
 	}
 
-	// Read the Bundle header
+	// Read and validate the Bundle header
 	copy(b.Magic[:], data)
 
 	if !bytes.Equal(b.Magic[:], IpcMagicBytes) && !bytes.Equal(b.Magic[:], KeepAliveMagicBytes) {
@@ -83,6 +83,11 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 	b.ConnectionType = byteOrder.Uint16(data[28:30])
 	b.Encoding = EncodingType(data[32])
 	b.Compression = CompressionType(data[33])
+
+	// Sanity check
+	if int(b.Length) != len(data) {
+		return ErrNotEnoughData
+	}
 
 	// Read the Bundle payload
 	var payloadData []byte
