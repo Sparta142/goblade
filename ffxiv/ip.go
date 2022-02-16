@@ -4,14 +4,16 @@ import "net"
 
 // All known public FINAL FANTASY XIV data center IP networks, in CIDR notation.
 var DataCenterCIDRs = [...]string{
-	"204.2.229.0/24",   // NA: Aether, Crystal, Primal
-	"195.82.50.0/24",   // EU: Chaos, Light
-	"124.150.157.0/24", // JP: Elemental, Gaia, Mana
+	"204.2.229.0/24",   // North America: Aether, Crystal, Primal
+	"195.82.50.0/24",   // Europe: Chaos, Light
+	"124.150.157.0/24", // Japan: Elemental, Gaia, Mana
+	"153.254.80.0/24",  // Oceania: Materia
 }
 
 // All known public FINAL FANTASY XIV data center IP networks.
 var DataCenterNets []net.IPNet
 
+// Returns whether ip is a known FINAL FANTASY XIV address.
 func IsFinalFantasyIP(ip net.IP) bool {
 	for _, ipnet := range DataCenterNets {
 		if ipnet.Contains(ip) {
