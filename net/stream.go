@@ -47,7 +47,7 @@ func newFfxivHalfStream(src, dst string, bundles chan<- ffxiv.Bundle) ffxivHalfS
 	return hs
 }
 
-func (stream *ffxivStream) Accept(
+func (s *ffxivStream) Accept(
 	tcp *layers.TCP,
 	_ gopacket.CaptureInfo,
 	dir reassembly.TCPFlowDirection,
@@ -55,7 +55,7 @@ func (stream *ffxivStream) Accept(
 	start *bool,
 	_ reassembly.AssemblerContext,
 ) bool {
-	if !stream.fsm.CheckState(tcp, dir) {
+	if !s.fsm.CheckState(tcp, dir) {
 		log.Debug("Packet failed state check, ignoring")
 		return false
 	}

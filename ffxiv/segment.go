@@ -87,7 +87,7 @@ func (s *Segment) UnmarshalBinary(data []byte) error {
 type Ipc struct {
 	Magic    uint16 `json:"-"`
 	Type     uint16 `json:"type"`
-	ServerId uint16 `json:"serverId"`
+	ServerID uint16 `json:"serverId"`
 	Epoch    uint32 `json:"epoch"`
 
 	Data []byte `json:"data"`
@@ -101,7 +101,7 @@ func (i *Ipc) UnmarshalBinary(data []byte) error {
 	// Read the IPC header
 	i.Magic = byteOrder.Uint16(data[0:2])
 	i.Type = byteOrder.Uint16(data[2:4])
-	i.ServerId = byteOrder.Uint16(data[6:8])
+	i.ServerID = byteOrder.Uint16(data[6:8])
 	i.Epoch = byteOrder.Uint32(data[8:12])
 
 	i.Data = data[16:]
@@ -109,7 +109,7 @@ func (i *Ipc) UnmarshalBinary(data []byte) error {
 }
 
 type KeepAlive struct {
-	Id    uint32 `json:"id"`
+	ID    uint32 `json:"id"`
 	Epoch uint32 `json:"epoch"`
 }
 
@@ -118,7 +118,7 @@ func (k *KeepAlive) UnmarshalBinary(data []byte) error {
 		return ErrNotEnoughData
 	}
 
-	k.Id = byteOrder.Uint32(data[0:4])
-	k.Id = byteOrder.Uint32(data[4:8])
+	k.ID = byteOrder.Uint32(data[0:4])
+	k.ID = byteOrder.Uint32(data[4:8])
 	return nil
 }

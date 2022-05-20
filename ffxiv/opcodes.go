@@ -9,7 +9,7 @@ import (
 
 //go:generate curl -o opcodes.json https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.json
 //go:embed opcodes.json
-var opcodesJson []byte
+var opcodesJSON []byte
 
 var opcodeTables map[Region]OpcodeTable
 
@@ -73,7 +73,7 @@ func parseOpcodes() (map[Region]OpcodeTable, error) {
 
 	// Load the JSON data into memory
 	var rawTables []rawOpcodeTable
-	if err := json.Unmarshal(opcodesJson, &rawTables); err != nil {
+	if err := json.Unmarshal(opcodesJSON, &rawTables); err != nil {
 		return nil, err
 	}
 

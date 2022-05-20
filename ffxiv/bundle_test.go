@@ -122,7 +122,7 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 	// Test the IPC fields
 	assert.EqualValues(0x0014, ipc.Magic)
 	assert.EqualValues(0x038f, ipc.Type)
-	assert.EqualValues(0x0222, ipc.ServerId)
+	assert.EqualValues(0x0222, ipc.ServerID)
 	assert.EqualValues(1624314020, ipc.Epoch)
 }
 
@@ -164,7 +164,7 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 	// Test the IPC fields
 	assert.EqualValues(0x0014, ipc.Magic)
 	assert.EqualValues(0x009c, ipc.Type)
-	assert.EqualValues(0x0222, ipc.ServerId)
+	assert.EqualValues(0x0222, ipc.ServerID)
 	assert.EqualValues(1624314019, ipc.Epoch)
 }
 
