@@ -27,14 +27,18 @@ const flushInterval = 1 * time.Minute
 // How old the data in an out-of-order TCP stream should be before flushing that stream.
 const flushStreamAge = 3 * time.Minute
 
-func Capture(handle *pcap.Handle, out chan<- ffxiv.Bundle) {
-	CaptureContext(context.Background(), handle, out)
+func Capture(handle *pcap.Handle, out chan<- ffxiv.Bundle) error {
+	return CaptureContext(context.Background(), handle, out)
 }
 
-func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.Bundle) {
+func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.Bundle) error {
 	// Configure pcap handle
-	handle.SetBPFFilter(bpfFilter)
-	handle.SetDirection(pcap.DirectionInOut)
+	if err := handle.SetBPFFilter(bpfFilter); err != nil {
+		return err
+	}
+	if err := handle.SetDirection(pcap.DirectionInOut); err != nil {
+		return err
+	}
 
 	// Setup packet source
 	src := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -66,7 +70,7 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 		case packet, ok := <-src.Packets():
 			if !ok {
 				log.Info("No more packets available")
-				return
+				return nil
 			}
 
 			tcp := packet.TransportLayer().(*layers.TCP)
@@ -92,7 +96,7 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 			}).Debug("Stream maintenance finished")
 
 		case <-ctx.Done():
-			return
+			return nil
 		}
 	}
 }
