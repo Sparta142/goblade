@@ -3,8 +3,11 @@ package ffxiv
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
+
+var ErrUnknownRegion = errors.New("unknown region")
 
 //go:generate curl -o opcodes.json https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.json
 //go:embed opcodes.json
@@ -71,7 +74,7 @@ func GetOpcodes(region Region) (OpcodeTable, error) {
 	}
 
 	if desiredRawTable == nil {
-		return OpcodeTable{}, fmt.Errorf("Could not find region %s", region)
+		return OpcodeTable{}, fmt.Errorf("%w: %s", ErrUnknownRegion, region)
 	}
 
 	// Create a new OpcodeTable from the raw table
