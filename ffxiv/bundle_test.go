@@ -88,36 +88,36 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 
-	var b ffxiv.Bundle
-	err := b.UnmarshalBinary(compressedBundleData)
+	var bundle ffxiv.Bundle
+	err := bundle.UnmarshalBinary(compressedBundleData)
 	assert.NoError(err)
 
 	// Test the header fields
-	assert.Equal(ffxiv.IpcMagicBytes, b.Magic[:]) // Should be enforced by UnmarshalBinary()
-	assert.EqualValues(1624314020072, b.Epoch)
-	assert.EqualValues(266, b.Length)
-	assert.EqualValues(0, b.ConnectionType)
-	assert.EqualValues(1, b.Encoding)
-	assert.EqualValues(1, b.Compression)
+	assert.Equal(ffxiv.IpcMagicBytes, bundle.Magic[:]) // Should be enforced by UnmarshalBinary()
+	assert.EqualValues(1624314020072, bundle.Epoch)
+	assert.EqualValues(266, bundle.Length)
+	assert.EqualValues(0, bundle.ConnectionType)
+	assert.EqualValues(1, bundle.Encoding)
+	assert.EqualValues(1, bundle.Compression)
 
-	assert.True(b.IsCompressed())
+	assert.True(bundle.IsCompressed())
 
 	nsec := int((72 * time.Millisecond).Nanoseconds()) // 72 ms
-	assert.Equal(time.Date(2021, 06, 21, 22, 20, 20, nsec, time.UTC), b.Time())
+	assert.Equal(time.Date(2021, 06, 21, 22, 20, 20, nsec, time.UTC), bundle.Time())
 
 	// Test the segments slice
-	assert.Len(b.Segments, 1)
+	assert.Len(bundle.Segments, 1)
 
 	// Test the first (and hopefully only) segment
-	s := b.Segments[0]
-	assert.EqualValues(1000, s.Length)
-	assert.EqualValues(0x106d2563, s.Source)
-	assert.EqualValues(0x106d2563, s.Target)
-	assert.EqualValues(3, s.Type)
+	segment := bundle.Segments[0]
+	assert.EqualValues(1000, segment.Length)
+	assert.EqualValues(0x106d2563, segment.Source)
+	assert.EqualValues(0x106d2563, segment.Target)
+	assert.EqualValues(3, segment.Type)
 
 	// Test that the first segment is an Ipc
-	assert.IsType((*ffxiv.Ipc)(nil), s.Payload)
-	ipc := s.Payload.(*ffxiv.Ipc)
+	assert.IsType((*ffxiv.Ipc)(nil), segment.Payload)
+	ipc := segment.Payload.(*ffxiv.Ipc)
 
 	// Test the IPC fields
 	assert.EqualValues(0x0014, ipc.Magic)
@@ -130,36 +130,36 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 
-	var b ffxiv.Bundle
-	err := b.UnmarshalBinary(uncompressedBundleData)
+	var bundle ffxiv.Bundle
+	err := bundle.UnmarshalBinary(uncompressedBundleData)
 	assert.NoError(err)
 
 	// Test the header fields
-	assert.Equal(ffxiv.IpcMagicBytes, b.Magic[:]) // Should be enforced by UnmarshalBinary()
-	assert.EqualValues(1624314019411, b.Epoch)
-	assert.EqualValues(288, b.Length)
-	assert.EqualValues(0, b.ConnectionType)
-	assert.EqualValues(1, b.Encoding)
-	assert.EqualValues(0, b.Compression)
+	assert.Equal(ffxiv.IpcMagicBytes, bundle.Magic[:]) // Should be enforced by UnmarshalBinary()
+	assert.EqualValues(1624314019411, bundle.Epoch)
+	assert.EqualValues(288, bundle.Length)
+	assert.EqualValues(0, bundle.ConnectionType)
+	assert.EqualValues(1, bundle.Encoding)
+	assert.EqualValues(0, bundle.Compression)
 
-	assert.False(b.IsCompressed())
+	assert.False(bundle.IsCompressed())
 
 	nsec := int((411 * time.Millisecond).Nanoseconds()) // 411 ms
-	assert.Equal(time.Date(2021, 06, 21, 22, 20, 19, nsec, time.UTC), b.Time())
+	assert.Equal(time.Date(2021, 06, 21, 22, 20, 19, nsec, time.UTC), bundle.Time())
 
 	// Test the segments slice
-	assert.Len(b.Segments, 1)
+	assert.Len(bundle.Segments, 1)
 
 	// Test the first (and hopefully only) segment
-	s := b.Segments[0]
-	assert.EqualValues(248, s.Length)
-	assert.EqualValues(0x106d2563, s.Source)
-	assert.EqualValues(0x106d2563, s.Target)
-	assert.EqualValues(3, s.Type)
+	segment := bundle.Segments[0]
+	assert.EqualValues(248, segment.Length)
+	assert.EqualValues(0x106d2563, segment.Source)
+	assert.EqualValues(0x106d2563, segment.Target)
+	assert.EqualValues(3, segment.Type)
 
 	// Test that the first segment is an Ipc
-	assert.IsType((*ffxiv.Ipc)(nil), s.Payload)
-	ipc := s.Payload.(*ffxiv.Ipc)
+	assert.IsType((*ffxiv.Ipc)(nil), segment.Payload)
+	ipc := segment.Payload.(*ffxiv.Ipc)
 
 	// Test the IPC fields
 	assert.EqualValues(0x0014, ipc.Magic)

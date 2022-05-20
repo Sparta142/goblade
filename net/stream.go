@@ -142,33 +142,33 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	}
 
 	// Find the magic bytes in `data`
-	i := indexFirst(data, ffxiv.IpcMagicBytes, ffxiv.KeepAliveMagicBytes)
-	if i == -1 {
+	idx := indexFirst(data, ffxiv.IpcMagicBytes, ffxiv.KeepAliveMagicBytes)
+	if idx == -1 {
 		return 0, nil, nil
 	}
 
 	// The chunk of `data` that starts with the magic string (found above)
-	chunk := data[i:]
+	chunk := data[idx:]
 
 	length := ffxiv.PeekBundleLength(chunk) // The (probable) length of the Bundle
 	if length > len(chunk) || length == -1 {
-		return i, nil, nil
+		return idx, nil, nil
 	}
 
-	return i + length, chunk[:length], nil
+	return idx + length, chunk[:length], nil
 }
 
 // Get the index of the earliest instance of any slice in seps,
 // or -1 if no slice in seps is present in s.
 func indexFirst(s []byte, seps ...[]byte) int {
-	i := -1
+	idx := -1
 	for _, sep := range seps {
 		index := bytes.Index(s, sep)
 
-		if index != -1 && (i == -1 || index < i) {
-			i = index
+		if index != -1 && (idx == -1 || index < idx) {
+			idx = index
 		}
 	}
 
-	return i
+	return idx
 }
