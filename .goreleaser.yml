@@ -13,7 +13,7 @@ builds:
       - windows
     goarch:
       - amd64
-      - 386
+      - "386"
 
     # https://goreleaser.com/customization/build/#reproducible-builds
     mod_timestamp: "{{ .CommitTimestamp }}"
@@ -30,7 +30,7 @@ builds:
 
 archives:
   - replacements:
-      386: x86
+      "386": x86
     wrap_in_directory: true
     format_overrides:
       - goos: windows
