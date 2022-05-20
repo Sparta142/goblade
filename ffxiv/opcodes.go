@@ -3,15 +3,12 @@ package ffxiv
 import (
 	_ "embed"
 	"encoding/json"
-
-	log "github.com/sirupsen/logrus"
+	"fmt"
 )
 
 //go:generate curl -o opcodes.json https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.json
 //go:embed opcodes.json
 var opcodesJSON []byte
-
-var opcodeTables map[Region]OpcodeTable
 
 type Region string
 type IpcType string
@@ -38,30 +35,17 @@ const (
 	ClientChatIpcType  = IpcType("ClientChatIpcType")
 )
 
-func GetOpcodeTable(region Region) (v OpcodeTable, ok bool) {
-	v, ok = opcodeTables[region]
-	return
-}
-
 func (t *OpcodeTable) GetOpcodeName(ipcType IpcType, opcode int) string {
 	if mapping, ok := t.Lists[ipcType]; ok {
 		if name, ok := mapping[opcode]; ok {
 			return name
 		}
 	}
+
 	return ""
 }
 
-func init() {
-	var err error
-	if opcodeTables, err = parseOpcodes(); err != nil {
-		log.WithError(err).Fatal("Failed to unmarshal embedded opcodes")
-	}
-
-	log.Debugf("Loaded embedded opcode definitions for %d regions", len(opcodeTables))
-}
-
-func parseOpcodes() (map[Region]OpcodeTable, error) {
+func GetOpcodes(region Region) (OpcodeTable, error) {
 	type rawOpcodeTable struct {
 		Version string `json:"version"`
 		Lists   map[IpcType][]struct {
@@ -71,34 +55,41 @@ func parseOpcodes() (map[Region]OpcodeTable, error) {
 		Region Region `json:"region"`
 	}
 
-	// Load the JSON data into memory
+	// Deserialize the array of opcode tables from JSON
 	var rawTables []rawOpcodeTable
 	if err := json.Unmarshal(opcodesJSON, &rawTables); err != nil {
-		return nil, err
+		return OpcodeTable{}, fmt.Errorf("unmarshal embedded opcodes: %w", err)
 	}
 
-	parsedTables := make(map[Region]OpcodeTable, len(rawTables))
-
-	// Loop through all regions
-	for _, rawTable := range rawTables {
-		parsedTable := OpcodeTable{
-			Version: rawTable.Version,
-			Lists:   make(map[IpcType]opcodeMapping, 6),
-			Region:  rawTable.Region,
+	// Find the region we're looking for
+	var desiredRawTable *rawOpcodeTable
+	for _, t := range rawTables {
+		if t.Region == region {
+			desiredRawTable = &t
+			break
 		}
-
-		// Convert each IPC type list to a mapping (opcode -> name)
-		for typ, list := range rawTable.Lists {
-			parsedTable.Lists[typ] = make(opcodeMapping, len(list))
-
-			// Convert {name, opcode} objects to key-value pairs
-			for _, def := range list {
-				parsedTable.Lists[typ][def.Opcode] = def.Name
-			}
-		}
-
-		parsedTables[rawTable.Region] = parsedTable
 	}
 
-	return parsedTables, nil
+	if desiredRawTable == nil {
+		return OpcodeTable{}, fmt.Errorf("Could not find region %s", region)
+	}
+
+	// Create a new OpcodeTable from the raw table
+	table := OpcodeTable{
+		Version: desiredRawTable.Version,
+		Region:  desiredRawTable.Region,
+		Lists:   make(map[IpcType]opcodeMapping, 6), //nolint: gomnd // There are 6 IPC types
+	}
+
+	// Convert each IPC type list to a mapping (opcode -> name)
+	for ipcType, list := range desiredRawTable.Lists {
+		table.Lists[ipcType] = make(opcodeMapping, len(list))
+
+		// Convert {name, opcode} structs to key-value pairs
+		for _, def := range list {
+			table.Lists[ipcType][def.Opcode] = def.Name
+		}
+	}
+
+	return table, nil
 }
