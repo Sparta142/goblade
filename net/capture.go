@@ -36,9 +36,6 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 	if err := handle.SetBPFFilter(bpfFilter); err != nil {
 		return fmt.Errorf("set bpf packet filter: %w", err)
 	}
-	if err := handle.SetDirection(pcap.DirectionInOut); err != nil {
-		return fmt.Errorf("set packet capture direction: %w", err)
-	}
 
 	// Setup packet source
 	src := gopacket.NewPacketSource(handle, handle.LinkType())
