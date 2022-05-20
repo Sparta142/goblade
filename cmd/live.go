@@ -44,11 +44,11 @@ var liveCmd = &cobra.Command{
 
 		handle, err := pcap.OpenLive(ifname, 2048, promiscuous, pcap.BlockForever)
 		if err != nil {
-			return err
+			return fmt.Errorf("open live pcap device: %w", err)
 		}
 		defer handle.Close()
-
 		handlePackets(handle)
+
 		return nil
 	},
 }
@@ -57,12 +57,12 @@ var liveCmd = &cobra.Command{
 func getDefaultInterfaceName() (string, error) {
 	ip, err := gateway.DiscoverInterface()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("discover default network interface ip: %w", err)
 	}
 
 	devs, err := pcap.FindAllDevs()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("find all network interfaces: %w", err)
 	}
 
 	for _, iface := range devs {

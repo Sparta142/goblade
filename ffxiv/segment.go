@@ -105,6 +105,7 @@ func (i *Ipc) UnmarshalBinary(data []byte) error {
 	i.Epoch = byteOrder.Uint32(data[8:12])
 
 	i.Data = data[16:]
+
 	return nil
 }
 
@@ -120,5 +121,6 @@ func (k *KeepAlive) UnmarshalBinary(data []byte) error {
 
 	k.ID = byteOrder.Uint32(data[0:4])
 	k.ID = byteOrder.Uint32(data[4:8])
+
 	return nil
 }

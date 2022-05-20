@@ -34,10 +34,10 @@ func Capture(handle *pcap.Handle, out chan<- ffxiv.Bundle) error {
 func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.Bundle) error {
 	// Configure pcap handle
 	if err := handle.SetBPFFilter(bpfFilter); err != nil {
-		return err
+		return fmt.Errorf("set bpf packet filter: %w", err)
 	}
 	if err := handle.SetDirection(pcap.DirectionInOut); err != nil {
-		return err
+		return fmt.Errorf("set packet capture direction: %w", err)
 	}
 
 	// Setup packet source

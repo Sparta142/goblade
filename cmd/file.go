@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/google/gopacket/pcap"
@@ -15,13 +17,13 @@ var fileCmd = &cobra.Command{
 	RunE: func(_ *cobra.Command, args []string) error {
 		handle, err := pcap.OpenOffline(args[0])
 		if err != nil {
-			return err
+			return fmt.Errorf("open offline pcap file: %w", err)
 		}
 		defer handle.Close()
 
 		log.Infof("Parsing capture file: %s", args[0])
-
 		handlePackets(handle)
+
 		return nil
 	},
 }

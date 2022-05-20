@@ -36,15 +36,15 @@ type ffxivHalfStream struct {
 func newFfxivHalfStream(src, dst string, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
 	log.Debugf("Creating half stream for %s->%s", src, dst)
 
-	hs := ffxivHalfStream{
+	halfStream := ffxivHalfStream{
 		bundles: bundles,
 		Src:     src,
 		Dst:     dst,
 	}
-	hs.lostData.Store(false)
+	halfStream.lostData.Store(false)
+	halfStream.r, halfStream.w = nio.Pipe(buffer.New(4 * 1024)) //nolint:gomnd // 4 KiB
 
-	hs.r, hs.w = nio.Pipe(buffer.New(4 * 1024)) // 4 KiB
-	return hs
+	return halfStream
 }
 
 func (s *ffxivStream) Accept(
@@ -61,21 +61,23 @@ func (s *ffxivStream) Accept(
 	}
 
 	*start = true
+
 	return true
 }
 
-func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.AssemblerContext) {
+func (s *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.AssemblerContext) {
 	available, _ := sg.Lengths()
 	if available == 0 {
 		return
 	}
 
 	direction, _, _, skip := sg.Info()
-	half := stream.getHalf(direction)
+	half := s.getHalf(direction)
 
 	if skip > 0 {
 		half.lostData.Store(true)
 		log.Warnf("Lost %d bytes in stream", skip)
+
 		return
 	}
 
@@ -84,10 +86,12 @@ func (stream *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassemb
 	half.w.Write(p)
 }
 
-func (stream *ffxivStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
-	log.Debugf("Closing stream %v", stream)
-	stream.toClient.w.Close()
-	stream.toServer.w.Close()
+func (s *ffxivStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
+	log.Debugf("Closing stream %v", s)
+
+	s.toClient.w.Close()
+	s.toServer.w.Close()
+
 	return true
 }
 
