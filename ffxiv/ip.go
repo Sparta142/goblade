@@ -13,7 +13,19 @@ var DataCenterCIDRs = [...]string{
 
 // DataCenterNets is a list of all known public
 // FINAL FANTASY XIV data center IP networks, as IPNets.
-var DataCenterNets = make([]net.IPNet, len(DataCenterCIDRs))
+var DataCenterNets = func() []net.IPNet {
+	nets := make([]net.IPNet, len(DataCenterCIDRs))
+
+	for i, s := range DataCenterCIDRs {
+		_, net, err := net.ParseCIDR(s)
+		if err != nil {
+			panic(err)
+		}
+		nets[i] = *net
+	}
+
+	return nets
+}()
 
 // Returns whether ip is a known FINAL FANTASY XIV address.
 func IsFinalFantasyIP(ip net.IP) bool {
@@ -24,14 +36,4 @@ func IsFinalFantasyIP(ip net.IP) bool {
 	}
 
 	return false
-}
-
-func init() {
-	for i, s := range DataCenterCIDRs {
-		_, net, err := net.ParseCIDR(s)
-		if err != nil {
-			panic(err)
-		}
-		DataCenterNets[i] = *net
-	}
 }
