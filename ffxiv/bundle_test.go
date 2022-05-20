@@ -1,9 +1,10 @@
-package ffxiv
+package ffxiv_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/sparta142/goblade/ffxiv"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -84,14 +85,15 @@ var compressedBundleData = []byte{
 }
 
 func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 
-	var b Bundle
+	var b ffxiv.Bundle
 	err := b.UnmarshalBinary(compressedBundleData)
 	assert.NoError(err)
 
 	// Test the header fields
-	assert.Equal(IpcMagicBytes, b.Magic[:]) // Should be enforced by UnmarshalBinary()
+	assert.Equal(ffxiv.IpcMagicBytes, b.Magic[:]) // Should be enforced by UnmarshalBinary()
 	assert.EqualValues(1624314020072, b.Epoch)
 	assert.EqualValues(266, b.Length)
 	assert.EqualValues(0, b.ConnectionType)
@@ -114,8 +116,8 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 	assert.EqualValues(3, s.Type)
 
 	// Test that the first segment is an Ipc
-	assert.IsType((*Ipc)(nil), s.Payload)
-	ipc := s.Payload.(*Ipc)
+	assert.IsType((*ffxiv.Ipc)(nil), s.Payload)
+	ipc := s.Payload.(*ffxiv.Ipc)
 
 	// Test the IPC fields
 	assert.EqualValues(0x0014, ipc.Magic)
@@ -125,14 +127,15 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 }
 
 func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
+	t.Parallel()
 	assert := assert.New(t)
 
-	var b Bundle
+	var b ffxiv.Bundle
 	err := b.UnmarshalBinary(uncompressedBundleData)
 	assert.NoError(err)
 
 	// Test the header fields
-	assert.Equal(IpcMagicBytes, b.Magic[:]) // Should be enforced by UnmarshalBinary()
+	assert.Equal(ffxiv.IpcMagicBytes, b.Magic[:]) // Should be enforced by UnmarshalBinary()
 	assert.EqualValues(1624314019411, b.Epoch)
 	assert.EqualValues(288, b.Length)
 	assert.EqualValues(0, b.ConnectionType)
@@ -155,8 +158,8 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 	assert.EqualValues(3, s.Type)
 
 	// Test that the first segment is an Ipc
-	assert.IsType((*Ipc)(nil), s.Payload)
-	ipc := s.Payload.(*Ipc)
+	assert.IsType((*ffxiv.Ipc)(nil), s.Payload)
+	ipc := s.Payload.(*ffxiv.Ipc)
 
 	// Test the IPC fields
 	assert.EqualValues(0x0014, ipc.Magic)
@@ -166,14 +169,14 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 }
 
 func Benchmark_Bundle_UnmarshalBinary_Uncompressed(b *testing.B) {
-	var bundle Bundle
+	var bundle ffxiv.Bundle
 	for n := 0; n < b.N; n++ {
 		_ = bundle.UnmarshalBinary(uncompressedBundleData)
 	}
 }
 
 func Benchmark_Bundle_UnmarshalBinary_Compressed(b *testing.B) {
-	var bundle Bundle
+	var bundle ffxiv.Bundle
 	for n := 0; n < b.N; n++ {
 		_ = bundle.UnmarshalBinary(compressedBundleData)
 	}

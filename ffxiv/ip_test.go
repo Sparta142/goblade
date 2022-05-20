@@ -1,14 +1,17 @@
-package ffxiv
+package ffxiv_test
 
 import (
 	"net"
 	"testing"
 
+	"github.com/sparta142/goblade/ffxiv"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAllKnownWorldIPs(t *testing.T) {
-	for _, s := range []string{
+	t.Parallel()
+
+	addresses := [...]string{
 		// Aether (NA)
 		"204.2.229.84",
 		"204.2.229.86",
@@ -104,8 +107,13 @@ func TestAllKnownWorldIPs(t *testing.T) {
 		"153.254.80.80",
 		"153.254.80.81",
 		"153.254.80.82",
-	} {
-		ip := net.ParseIP(s)
-		assert.True(t, IsFinalFantasyIP(ip))
+	}
+
+	for _, addr := range addresses {
+		t.Run(addr, func(t *testing.T) {
+			t.Parallel()
+			ip := net.ParseIP(addr)
+			assert.True(t, ffxiv.IsFinalFantasyIP(ip))
+		})
 	}
 }

@@ -1,6 +1,10 @@
-package ffxiv
+package ffxiv_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/sparta142/goblade/ffxiv"
+)
 
 var segmentData = []byte{
 	0xf8, 0x00, 0x00, 0x00, 0x63, 0x25, 0x6d, 0x10,
@@ -37,7 +41,7 @@ var segmentData = []byte{
 }
 
 func Benchmark_Segment_UnmarshalBinary(b *testing.B) {
-	var s Segment
+	var s ffxiv.Segment
 	for n := 0; n < b.N; n++ {
 		_ = s.UnmarshalBinary(segmentData)
 	}
