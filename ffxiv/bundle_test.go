@@ -168,13 +168,13 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 func Benchmark_Bundle_UnmarshalBinary_Uncompressed(b *testing.B) {
 	var bundle Bundle
 	for n := 0; n < b.N; n++ {
-		bundle.UnmarshalBinary(uncompressedBundleData)
+		_ = bundle.UnmarshalBinary(uncompressedBundleData)
 	}
 }
 
 func Benchmark_Bundle_UnmarshalBinary_Compressed(b *testing.B) {
 	var bundle Bundle
 	for n := 0; n < b.N; n++ {
-		bundle.UnmarshalBinary(compressedBundleData)
+		_ = bundle.UnmarshalBinary(compressedBundleData)
 	}
 }

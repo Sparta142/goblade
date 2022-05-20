@@ -39,6 +39,6 @@ var segmentData = []byte{
 func Benchmark_Segment_UnmarshalBinary(b *testing.B) {
 	var s Segment
 	for n := 0; n < b.N; n++ {
-		s.UnmarshalBinary(segmentData)
+		_ = s.UnmarshalBinary(segmentData)
 	}
 }
