@@ -66,11 +66,15 @@ func (s *Segment) UnmarshalBinary(data []byte) error {
 	switch s.Type {
 	case SegmentIpc:
 		s.Payload = &Ipc{}
-		s.Payload.(*Ipc).UnmarshalBinary(payloadData)
+		if err := s.Payload.(*Ipc).UnmarshalBinary(payloadData); err != nil {
+			return err
+		}
 
 	case SegmentClientKeepAlive, SegmentServerKeepAlive:
 		s.Payload = &KeepAlive{}
-		s.Payload.(*KeepAlive).UnmarshalBinary(payloadData)
+		if err := s.Payload.(*KeepAlive).UnmarshalBinary(payloadData); err != nil {
+			return err
+		}
 
 	default:
 		log.Debugf("Segment has unknown type %d; storing payload as []byte", s.Type)
