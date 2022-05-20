@@ -2,16 +2,18 @@ package ffxiv
 
 import "net"
 
-// DataCenterCIDRs is an array of all known public FINAL FANTASY XIV
+// DataCenterCIDRs is an array of all theorized public FINAL FANTASY XIV
 // data center IP networks, in string CIDR notation.
+//
+// Based on data provided by https://is.xivup.com/adv.
 var DataCenterCIDRs = [...]string{
-	"204.2.229.0/24",   // North America: Aether, Crystal, Primal
-	"195.82.50.0/24",   // Europe: Chaos, Light
-	"124.150.157.0/24", // Japan: Elemental, Gaia, Mana
-	"153.254.80.0/24",  // Oceania: Materia
+	"204.2.229.64/26",  // North America: Aether, Crystal, Primal
+	"195.82.50.32/27",  // Europe: Chaos, Light
+	"124.150.157.0/26", // Japan: Elemental, Gaia, Mana
+	"153.254.80.64/27", // Oceania: Materia
 }
 
-// DataCenterNets is a list of all known public
+// DataCenterNets is a list of all theorized public
 // FINAL FANTASY XIV data center IP networks, as IPNets.
 var DataCenterNets = func() []net.IPNet {
 	nets := make([]net.IPNet, len(DataCenterCIDRs))
