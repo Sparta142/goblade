@@ -67,6 +67,26 @@ type Bundle struct {
 }
 
 func (b *Bundle) UnmarshalBinary(data []byte) error {
+	if err := b.unmarshalHeader(data); err != nil {
+		return err
+	}
+
+	if err := b.unmarshalPayload(data[bundleHeaderSize:]); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *Bundle) Time() time.Time {
+	return time.UnixMilli(int64(b.Epoch)).UTC()
+}
+
+func (b *Bundle) IsCompressed() bool {
+	return b.Compression != CompressionNone
+}
+
+func (b *Bundle) unmarshalHeader(data []byte) error {
 	if len(data) < bundleHeaderSize {
 		return ErrNotEnoughData
 	}
@@ -83,45 +103,33 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 	b.ConnectionType = byteOrder.Uint16(data[28:30])
 	b.Encoding = EncodingType(data[32])
 	b.Compression = CompressionType(data[33])
+	b.Segments = make([]Segment, byteOrder.Uint16(data[30:32]))
 
 	// Sanity check
-	if int(b.Length) != len(data) {
+	if len(data) != int(b.Length) {
 		return ErrNotEnoughData
 	}
 
+	return nil
+}
+
+func (b *Bundle) unmarshalPayload(data []byte) error {
 	// Read the Bundle payload
-	var payloadData []byte
-
-	switch b.Compression {
-	case CompressionNone:
-		payloadData = data[bundleHeaderSize:]
-
-	case CompressionZlib:
-		zr, err := zlib.NewReader(bytes.NewReader(data[bundleHeaderSize:]))
-		if err != nil {
-			return fmt.Errorf("create zlib reader: %w", err)
-		}
-		defer zr.Close()
-
-		if payloadData, err = ioutil.ReadAll(zr); err != nil {
-			return fmt.Errorf("read all from zlib reader: %w", err)
-		}
-
-	default:
-		return ErrBadCompression
+	payloadData, err := decompressBytes(data, b.Compression)
+	if err != nil {
+		return err
 	}
 
 	// Read all segments from the decompressed payload
-	segmentCount := byteOrder.Uint16(data[30:32])
-	b.Segments = make([]Segment, segmentCount)
+	for i := range b.Segments {
+		segment := &b.Segments[i]
 
-	for i := 0; i < int(segmentCount); i++ { //nolint:varnamelen
-		if err := b.Segments[i].UnmarshalBinary(payloadData); err != nil {
+		if err := segment.UnmarshalBinary(payloadData); err != nil {
 			return fmt.Errorf("read segment: %w", err)
 		}
 
 		// Advance payloadData by the size of the just-read Segment
-		payloadData = payloadData[b.Segments[i].Length:]
+		payloadData = payloadData[segment.Length:]
 	}
 
 	// Sanity check: the entire payload should have been consumed
@@ -132,12 +140,29 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func (b *Bundle) Time() time.Time {
-	return time.UnixMilli(int64(b.Epoch)).UTC()
-}
+func decompressBytes(data []byte, compression CompressionType) ([]byte, error) {
+	var decompressed []byte
 
-func (b *Bundle) IsCompressed() bool {
-	return b.Compression != CompressionNone
+	switch compression {
+	case CompressionNone:
+		return data, nil
+
+	case CompressionZlib:
+		reader, err := zlib.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("create zlib reader: %w", err)
+		}
+		defer reader.Close()
+
+		if decompressed, err = ioutil.ReadAll(reader); err != nil {
+			return nil, fmt.Errorf("read all from zlib reader: %w", err)
+		}
+
+	default:
+		return nil, ErrBadCompression
+	}
+
+	return decompressed, nil
 }
 
 func PeekBundleLength(data []byte) int {
