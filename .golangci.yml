@@ -5,7 +5,6 @@ linters:
     - forcetypeassert
     - gci
     - gochecknoglobals
-    - gofumpt
     - nonamedreturns
     - wsl
 

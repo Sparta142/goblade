@@ -103,7 +103,7 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 	assert.True(bundle.IsCompressed())
 
 	nsec := int((72 * time.Millisecond).Nanoseconds()) // 72 ms
-	assert.Equal(time.Date(2021, 06, 21, 22, 20, 20, nsec, time.UTC), bundle.Time())
+	assert.Equal(time.Date(2021, 6, 21, 22, 20, 20, nsec, time.UTC), bundle.Time())
 
 	// Test the segments slice
 	assert.Len(bundle.Segments, 1)
@@ -145,7 +145,7 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 	assert.False(bundle.IsCompressed())
 
 	nsec := int((411 * time.Millisecond).Nanoseconds()) // 411 ms
-	assert.Equal(time.Date(2021, 06, 21, 22, 20, 19, nsec, time.UTC), bundle.Time())
+	assert.Equal(time.Date(2021, 6, 21, 22, 20, 19, nsec, time.UTC), bundle.Time())
 
 	// Test the segments slice
 	assert.Len(bundle.Segments, 1)

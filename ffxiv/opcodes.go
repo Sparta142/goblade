@@ -14,7 +14,9 @@ var ErrUnknownRegion = errors.New("ffxiv: unknown region")
 var opcodesJSON []byte
 
 type Region string
+
 type IpcType string
+
 type opcodeMapping map[int]string
 
 type OpcodeTable struct {

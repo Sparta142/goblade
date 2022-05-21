@@ -12,6 +12,7 @@ import (
 )
 
 type EncodingType uint8
+
 type CompressionType uint8
 
 const (
