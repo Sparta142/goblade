@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-var ErrUnknownRegion = errors.New("unknown region")
+var ErrUnknownRegion = errors.New("ffxiv: unknown region")
 
 //go:generate curl -o opcodes.json https://raw.githubusercontent.com/karashiiro/FFXIVOpcodes/master/opcodes.json
 //go:embed opcodes.json
@@ -36,6 +36,8 @@ const (
 	ClientLobbyIpcType = IpcType("ClientLobbyIpcType")
 	ServerChatIpcType  = IpcType("ServerChatIpcType")
 	ClientChatIpcType  = IpcType("ClientChatIpcType")
+
+	ipcTypeCount = 6
 )
 
 func (t *OpcodeTable) GetOpcodeName(ipcType IpcType, opcode int) string {
@@ -66,9 +68,9 @@ func GetOpcodes(region Region) (OpcodeTable, error) {
 
 	// Find the region we're looking for
 	var desiredRawTable *rawOpcodeTable
-	for _, t := range rawTables {
+	for i, t := range rawTables {
 		if t.Region == region {
-			desiredRawTable = &t
+			desiredRawTable = &rawTables[i]
 			break
 		}
 	}
@@ -81,7 +83,7 @@ func GetOpcodes(region Region) (OpcodeTable, error) {
 	table := OpcodeTable{
 		Version: desiredRawTable.Version,
 		Region:  desiredRawTable.Region,
-		Lists:   make(map[IpcType]opcodeMapping, 6), //nolint: gomnd // There are 6 IPC types
+		Lists:   make(map[IpcType]opcodeMapping, ipcTypeCount),
 	}
 
 	// Convert each IPC type list to a mapping (opcode -> name)
