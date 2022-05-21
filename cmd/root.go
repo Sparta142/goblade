@@ -41,7 +41,7 @@ func Execute() {
 		rootCmd.SetArgs([]string{"live"})
 	}
 
-	rootCmd.Execute()
+	rootCmd.Execute() //nolint:errcheck
 }
 
 func init() {

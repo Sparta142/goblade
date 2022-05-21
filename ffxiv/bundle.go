@@ -115,7 +115,7 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 	segmentCount := byteOrder.Uint16(data[30:32])
 	b.Segments = make([]Segment, segmentCount)
 
-	for i := 0; i < int(segmentCount); i++ {
+	for i := 0; i < int(segmentCount); i++ { //nolint:varnamelen
 		if err := b.Segments[i].UnmarshalBinary(payloadData); err != nil {
 			return fmt.Errorf("read segment: %w", err)
 		}

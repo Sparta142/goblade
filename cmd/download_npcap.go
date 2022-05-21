@@ -12,6 +12,7 @@ import (
 
 const url = "https://nmap.org/npcap/#download"
 
+//nolint:forbidigo // fmt.Printf is used to print a message to the user
 var downloadNpcapCmd = &cobra.Command{
 	Use:   "download-npcap",
 	Short: "Open the Npcap library download webpage in a web browser",
