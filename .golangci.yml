@@ -1,0 +1,64 @@
+linters:
+  enable-all: true
+  disable:
+    - exhaustruct
+    - forcetypeassert
+    - gci
+    - gochecknoglobals
+    - gofumpt
+    - nonamedreturns
+    - wsl
+
+    # Deprecated linters
+    - exhaustivestruct
+    - golint
+    - maligned
+    - scopelint
+    - interfacer
+
+linters-settings:
+  exhaustruct:
+    exclude:
+      - 'cobra\.Command$'
+      - 'cobra\.CompletionOptions$'
+      - 'logrus\.TextFormatter$'
+
+  gomnd:
+    ignored-numbers:
+      - "2"
+
+  govet:
+    enable-all: true
+
+  nlreturn:
+    block-size: 2
+
+  varnamelen:
+    ignore-decls:
+      - sg reassembly.ScatterGather
+
+    ignore-names:
+      - ip
+
+issues:
+  exclude-rules:
+    - path: 'cmd[/\\].+\.go'
+      linters:
+        - gochecknoinits
+
+    - path: '_test\.go'
+      linters:
+        - dupl
+        - forcetypeassert
+        - funlen
+
+    # https://github.com/kunwardeep/paralleltest/issues/8
+    - path: '_test\.go'
+      text: does not use range value in test Run
+      linters:
+        - paralleltest
+
+    # https://github.com/golang/go/issues/44877#issuecomment-794565908
+    - text: 'struct with \d+ pointer bytes could be \d+'
+      linters:
+        - govet
