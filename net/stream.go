@@ -83,7 +83,9 @@ func (s *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.As
 
 	// Queue the packets to the Bundle reading logic
 	p := sg.Fetch(available)
-	half.w.Write(p)
+	if _, err := half.w.Write(p); err != nil {
+		log.WithError(err).Fatal("Failed to write data to half stream")
+	}
 }
 
 func (s *ffxivStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
