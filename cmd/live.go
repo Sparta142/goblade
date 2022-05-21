@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 
@@ -77,27 +79,22 @@ func getDefaultInterfaceName() (string, error) {
 }
 
 func handlePackets(handle *pcap.Handle) {
-	table, ok := ffxiv.GetOpcodeTable(ffxiv.RegionGlobal)
-	if !ok {
-		log.Fatal("Failed to load global opcode table")
-	}
+	bundles := make(chan ffxiv.Bundle)
+	go func() {
+		err := net.Capture(handle, bundles)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
-	bundles := make(chan ffxiv.Bundle, 100)
-	go net.Capture(handle, bundles)
+	e := json.NewEncoder(os.Stdout)
+	e.SetEscapeHTML(false)
+	e.SetIndent("", "")
 
 	for bnd := range bundles {
-		fmt.Printf("* Bundle (%d bytes, at %s)\n", bnd.Length, bnd.Time())
-
-		for i, seg := range bnd.Segments {
-			fmt.Printf("    [%d] Segment - %s (%d bytes, 0x%X -> 0x%X)\n", i+1, seg.Type, seg.Length, seg.Source, seg.Target)
-
-			if ipc, ok := seg.Payload.(*ffxiv.Ipc); ok {
-				fmt.Printf(
-					"    ServerZone: %q | ClientZone: %q\n",
-					table.GetOpcodeName(ffxiv.ServerZoneIpcType, int(ipc.Type)),
-					table.GetOpcodeName(ffxiv.ClientZoneIpcType, int(ipc.Type)),
-				)
-			}
+		err := e.Encode(bnd)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to encode bundle")
 		}
 	}
 }
