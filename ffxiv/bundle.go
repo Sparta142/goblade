@@ -16,8 +16,9 @@ type EncodingType uint8
 type CompressionType uint8
 
 const (
-	CompressionNone = CompressionType(0)
-	CompressionZlib = CompressionType(1)
+	CompressionNone  = CompressionType(0)
+	CompressionZlib  = CompressionType(1)
+	CompressionOodle = CompressionType(2)
 )
 
 var (
@@ -158,6 +159,10 @@ func decompressBytes(data []byte, compression CompressionType) ([]byte, error) {
 		if decompressed, err = ioutil.ReadAll(reader); err != nil {
 			return nil, fmt.Errorf("read all from zlib reader: %w", err)
 		}
+
+	// TODO: Add support for Oodle compression
+	case CompressionOodle:
+		return nil, fmt.Errorf("oodle is unsupported: %w", ErrBadCompression)
 
 	default:
 		return nil, ErrBadCompression
