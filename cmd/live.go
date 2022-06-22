@@ -18,6 +18,8 @@ import (
 // Flag indicating that a network interface is loopback.
 const pcapIfLoopback = uint32(0x00000001)
 
+const defaultSnaplen = 2048
+
 var errNoDefaultInterface = errors.New("no default interface found")
 
 var promiscuous bool
@@ -44,7 +46,7 @@ var liveCmd = &cobra.Command{
 			log.Infof("Capturing on specified device: %s", ifname)
 		}
 
-		handle, err := pcap.OpenLive(ifname, 2048, promiscuous, pcap.BlockForever)
+		handle, err := pcap.OpenLive(ifname, defaultSnaplen, promiscuous, pcap.BlockForever)
 		if err != nil {
 			return fmt.Errorf("open live pcap device: %w", err)
 		}
