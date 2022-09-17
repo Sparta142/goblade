@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zlib"
+	"github.com/sparta142/goblade/oodle"
 )
 
 type EncodingType uint8
@@ -55,6 +56,8 @@ type Bundle struct {
 
 	// The total length of the bundle, in bytes (including the header).
 	Length uint16 `json:"length"`
+
+	UncompressedLength uint32 `json:"uncompressedLength"`
 
 	// The connection type. Usually 0.
 	ConnectionType uint16 `json:"connectionType"`
@@ -106,6 +109,7 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 	b.Encoding = EncodingType(data[32])
 	b.Compression = CompressionType(data[33])
 	b.Segments = make([]Segment, byteOrder.Uint16(data[30:32]))
+	b.UncompressedLength = byteOrder.Uint32(data[36:40])
 
 	// Sanity check
 	if len(data) != int(b.Length) {
@@ -117,7 +121,7 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 
 func (b *Bundle) unmarshalPayload(data []byte) error {
 	// Read the Bundle payload
-	payloadData, err := decompressBytes(data, b.Compression)
+	payloadData, err := decompressBytes(data, b.Compression, b.UncompressedLength)
 	if err != nil {
 		return err
 	}
@@ -142,7 +146,7 @@ func (b *Bundle) unmarshalPayload(data []byte) error {
 	return nil
 }
 
-func decompressBytes(data []byte, compression CompressionType) ([]byte, error) {
+func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([]byte, error) {
 	var decompressed []byte
 
 	switch compression {
@@ -160,9 +164,11 @@ func decompressBytes(data []byte, compression CompressionType) ([]byte, error) {
 			return nil, fmt.Errorf("read all from zlib reader: %w", err)
 		}
 
-	// TODO: Add support for Oodle compression
 	case CompressionOodle:
-		return nil, fmt.Errorf("oodle is unsupported: %w", ErrBadCompression)
+		var err error
+		if decompressed, err = oodle.Decode(data, rawLen); err != nil {
+			return nil, fmt.Errorf("oodle decode: %w", err)
+		}
 
 	default:
 		return nil, ErrBadCompression
