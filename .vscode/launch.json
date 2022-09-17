@@ -8,6 +8,7 @@
             "mode": "debug",
             "program": "${workspaceFolder}",
             "args": [
+                "--verbose",
                 "live"
             ]
         }
