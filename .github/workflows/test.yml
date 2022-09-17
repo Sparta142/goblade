@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  # pull-requests: read
 
 jobs:
   test:
@@ -27,10 +26,8 @@ jobs:
       - name: Install libpcap
         if: runner.os == 'Linux'
         run: |
-          apt-get update -q
-          apt-get install -q -y libpcap-dev
-        env:
-          DEBIAN_FRONTEND: noninteractive
+          sudo apt-get update -q
+          sudo apt-get install -q -y libpcap-dev
 
       - name: Test
         run: go test -v ./...
@@ -49,10 +46,8 @@ jobs:
       - name: Install libpcap
         if: runner.os == 'Linux'
         run: |
-          apt-get update -q
-          apt-get install -q -y libpcap-dev
-        env:
-          DEBIAN_FRONTEND: noninteractive
+          sudo apt-get update -q
+          sudo apt-get install -q -y libpcap-dev
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
