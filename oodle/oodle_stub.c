@@ -168,7 +168,10 @@ static unsigned char *state = NULL;
 static unsigned char *shared = NULL;
 static unsigned char *window = NULL;
 
-static unsigned char *scratch = NULL;
+/**
+ * @brief A critical section object guarding the use of OodleNetwork1UDP_Decode.
+ */
+static CRITICAL_SECTION criticalSection;
 
 DWORD init(const char *lpLibFileName)
 {
@@ -202,6 +205,8 @@ DWORD init(const char *lpLibFileName)
     if (!OodleNetwork1UDP_Decode)
         return 1;
 
+    InitializeCriticalSectionAndSpinCount(&criticalSection, 0x400);
+
     // Allocate memory for Oodle operations
     // Note: These *must* be calloc, otherwise it will mysteriously crash on decode
     state = calloc(OodleNetworkUDP_State_Size(), 1);
@@ -214,11 +219,6 @@ DWORD init(const char *lpLibFileName)
 
     window = calloc(WINDOW_SIZE, 1);
     if (!window)
-        return 2;
-
-    // Scratch buffer for writing decompressed data to
-    scratch = calloc(MAX_DECOMPRESSED_SIZE, 1);
-    if (!scratch)
         return 2;
 
     // Patch the import table (in memory) for the game image,
@@ -235,29 +235,25 @@ DWORD init(const char *lpLibFileName)
 
 void deinit()
 {
-    free(state);
-    state = NULL;
+    free(window);
+    window = NULL;
 
     free(shared);
     shared = NULL;
 
-    free(window);
-    window = NULL;
+    free(state);
+    state = NULL;
 
-    free(scratch);
-    scratch = NULL;
+    DeleteCriticalSection(&criticalSection);
 
     FreeLibrary(hModule);
     hModule = NULL;
 }
 
-void *decode(void *comp, __int64 compLen, __int64 rawLen)
+bool decode(void *comp, __int64 compLen, void *raw, __int64 rawLen)
 {
-    if (rawLen > MAX_DECOMPRESSED_SIZE)
-        abort(); // Our assumption is invalid
-
-    if (OodleNetwork1UDP_Decode(state, shared, comp, compLen, scratch, rawLen))
-        return scratch; // It is the caller's job to know many bytes to copy (should be `rawLen` bytes)
-
-    return NULL;
+    EnterCriticalSection(&criticalSection);
+    bool ret = OodleNetwork1UDP_Decode(state, shared, comp, compLen, raw, rawLen);
+    LeaveCriticalSection(&criticalSection);
+    return ret;
 }

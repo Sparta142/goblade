@@ -9,7 +9,7 @@ package oodle
 
 DWORD init(const char *lpLibFileName);
 void deinit();
-void *decode(void *comp, __int64 compLen, __int64 rawLen);
+bool decode(void *comp, __int64 compLen, void* raw, __int64 rawLen);
 */
 import "C"
 
@@ -39,24 +39,24 @@ var exePaths = [...]string{
 
 var oodleLock sync.Mutex
 
-func Decode(payload []byte, rawLen uint32) ([]byte, error) {
+func Decode(comp, raw []byte) error {
 	// Get a pointer to the beginning of the slice data.
 	// This is cursed, but saves us a malloc by not marshaling data into C memory.
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&payload))
-	comp := unsafe.Pointer(sh.Data)
-
-	// Serialize access to the Oodle state (it is probably not thread-safe)
-	oodleLock.Lock()
-	defer oodleLock.Unlock()
+	compHdr := (*reflect.SliceHeader)(unsafe.Pointer(&comp))
+	rawHdr := (*reflect.SliceHeader)(unsafe.Pointer(&raw))
 
 	// Decompress the slice
-	raw := C.decode(comp, C.longlong(len(payload)), C.longlong(rawLen))
-	if raw == unsafe.Pointer(nil) {
-		return nil, ErrDecompressionFailed
+	success := C.decode(
+		unsafe.Pointer(compHdr.Data),
+		C.longlong(len(comp)),
+		unsafe.Pointer(rawHdr.Data),
+		C.longlong(len(raw)),
+	)
+	if !success {
+		return ErrDecompressionFailed
 	}
 
-	// Marshal the decompressed data back into Go memory and return it
-	return C.GoBytes(raw, C.int(rawLen)), nil
+	return nil
 }
 
 func findGameExe() (string, error) {

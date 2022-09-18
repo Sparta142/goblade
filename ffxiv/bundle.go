@@ -166,7 +166,8 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 
 	case CompressionOodle:
 		var err error
-		if decompressed, err = oodle.Decode(data, rawLen); err != nil {
+		decompressed = make([]byte, rawLen)
+		if err = oodle.Decode(data, decompressed); err != nil {
 			return nil, fmt.Errorf("oodle decode: %w", err)
 		}
 
