@@ -16,6 +16,7 @@ import "C"
 import (
 	"errors"
 	"os"
+	"reflect"
 	"sync"
 	"unsafe"
 
@@ -39,19 +40,20 @@ var exePaths = [...]string{
 var oodleLock sync.Mutex
 
 func Decode(payload []byte, rawLen uint32) ([]byte, error) {
+	// Get a pointer to the beginning of the slice data.
+	// This is cursed, but saves us a malloc by not marshaling data into C memory.
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&payload))
+	comp := unsafe.Pointer(sh.Data)
+
+	// Serialize access to the Oodle state (it is probably not thread-safe)
 	oodleLock.Lock()
 	defer oodleLock.Unlock()
 
-	// Marshal the compressed payload into C memory
-	comp := C.CBytes(payload)
-	defer C.free(comp)
-
-	// Decompress it
+	// Decompress the slice
 	raw := C.decode(comp, C.longlong(len(payload)), C.longlong(rawLen))
 	if raw == unsafe.Pointer(nil) {
 		return nil, ErrDecompressionFailed
 	}
-	defer C.free(raw)
 
 	// Marshal the decompressed data back into Go memory and return it
 	return C.GoBytes(raw, C.int(rawLen)), nil

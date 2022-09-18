@@ -2,6 +2,7 @@
 #include <memory.h>  // memcpy_s
 #include <stdbool.h> // bool, false, true
 #include <stdio.h>   // sprintf_s
+#include <stdlib.h>  // abort
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -10,6 +11,7 @@
 
 #define HASHTABLE_BITS 19
 #define WINDOW_SIZE 0x16000
+#define MAX_DECOMPRESSED_SIZE (1 << 16)
 
 static __int64 (*OodleNetworkUDP_State_Size)();
 
@@ -166,6 +168,8 @@ static unsigned char *state = NULL;
 static unsigned char *shared = NULL;
 static unsigned char *window = NULL;
 
+static unsigned char *scratch = NULL;
+
 DWORD init(const char *lpLibFileName)
 {
     // Load the game executable as a library (this is cursed!)
@@ -212,6 +216,11 @@ DWORD init(const char *lpLibFileName)
     if (!window)
         return 2;
 
+    // Scratch buffer for writing decompressed data to
+    scratch = calloc(MAX_DECOMPRESSED_SIZE, 1);
+    if (!scratch)
+        return 2;
+
     // Patch the import table (in memory) for the game image,
     // so that it can call imported functions image without crashing.
     if (!fixupImports(hModule))
@@ -235,22 +244,20 @@ void deinit()
     free(window);
     window = NULL;
 
+    free(scratch);
+    scratch = NULL;
+
     FreeLibrary(hModule);
     hModule = NULL;
 }
 
 void *decode(void *comp, __int64 compLen, __int64 rawLen)
 {
-    // Allocate memory for the decompressed data (to be freed by caller on success)
-    void *raw = malloc(rawLen);
-    if (!raw)
-        return NULL;
+    if (rawLen > MAX_DECOMPRESSED_SIZE)
+        abort(); // Our assumption is invalid
 
-    if (!OodleNetwork1UDP_Decode(state, shared, comp, compLen, raw, rawLen))
-    {
-        free(raw);
-        return NULL;
-    }
+    if (OodleNetwork1UDP_Decode(state, shared, comp, compLen, scratch, rawLen))
+        return scratch; // It is the caller's job to know many bytes to copy (should be `rawLen` bytes)
 
-    return raw;
+    return NULL;
 }
