@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #include <malloc.h>  // calloc, free, malloc
 #include <memory.h>  // memcpy_s
 #include <stdbool.h> // bool, false, true
@@ -254,3 +255,6 @@ void *decode(void *comp, __int64 compLen, __int64 rawLen)
 
     return raw;
 }
+#else // #ifdef _WIN32
+#warning "Platform not supported"
+#endif // #ifdef _WIN32
