@@ -166,7 +166,7 @@ static HMODULE hModule = NULL;
 
 static unsigned char *state = NULL;
 static unsigned char *shared = NULL;
-static unsigned char *window = NULL;
+static unsigned char *window[WINDOW_SIZE];
 
 /**
  * @brief A critical section object guarding the use of OodleNetwork1UDP_Decode.
@@ -175,6 +175,11 @@ static CRITICAL_SECTION criticalSection;
 
 DWORD init(const char *lpLibFileName)
 {
+    if (hModule != NULL)
+        return 0;
+
+    InitializeCriticalSectionAndSpinCount(&criticalSection, 0x400);
+
     // Load the game executable as a library (this is cursed!)
     hModule = LoadLibraryEx(lpLibFileName, NULL, LOAD_LIBRARY_REQUIRE_SIGNED_TARGET);
     if (!hModule)
@@ -182,43 +187,28 @@ DWORD init(const char *lpLibFileName)
 
     // B8 ?? ?? ?? ?? C3 CC CC CC CC CC CC CC CC CC CC 40 55 56
     OodleNetworkUDP_State_Size = scanImage(hModule, (int[]){0xB8, -1, -1, -1, -1, 0xC3, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x40, 0x55, 0x56}, 19);
-    if (!OodleNetworkUDP_State_Size)
-        return 1;
 
     // B8 ?? ?? ?? ?? 48 D3 E0 48 8D 04 C5
     OodleNetwork1_Shared_Size = scanImage(hModule, (int[]){0xB8, -1, -1, -1, -1, 0x48, 0xD3, 0xE0, 0x48, 0x8D, 0x04, 0xC5}, 12);
-    if (!OodleNetwork1_Shared_Size)
-        return 1;
 
     // 48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 41 8B D9 49 8B F0
     OodleNetwork1_Shared_SetWindow = scanImage(hModule, (int[]){0x48, 0x89, 0x5C, 0x24, -1, 0x48, 0x89, 0x6C, 0x24, -1, 0x48, 0x89, 0x74, 0x24, -1, 0x48, 0x89, 0x7C, 0x24, -1, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x20, 0x41, 0x8B, 0xD9, 0x49, 0x8B, 0xF0}, 32);
-    if (!OodleNetwork1_Shared_SetWindow)
-        return 1;
 
     // 48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 30 48 8B F2
     OodleNetwork1UDP_Train = scanImage(hModule, (int[]){0x48, 0x89, 0x5C, 0x24, -1, 0x48, 0x89, 0x6C, 0x24, -1, 0x48, 0x89, 0x74, 0x24, -1, 0x48, 0x89, 0x7C, 0x24, -1, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0xF2}, 29);
-    if (!OodleNetwork1UDP_Train)
-        return 1;
 
     // 40 53 48 83 EC 30 48 8B 44 24 ?? 49 8B D9 48 85 C0
     OodleNetwork1UDP_Decode = scanImage(hModule, (int[]){0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0x44, 0x24, -1, 0x49, 0x8B, 0xD9, 0x48, 0x85, 0xC0}, 17);
-    if (!OodleNetwork1UDP_Decode)
-        return 1;
 
-    InitializeCriticalSectionAndSpinCount(&criticalSection, 0x400);
+    if (!OodleNetworkUDP_State_Size || !OodleNetwork1_Shared_Size || !OodleNetwork1_Shared_SetWindow || !OodleNetwork1UDP_Train || !OodleNetwork1UDP_Decode)
+        return 1;
 
     // Allocate memory for Oodle operations
     // Note: These *must* be calloc, otherwise it will mysteriously crash on decode
     state = calloc(OodleNetworkUDP_State_Size(), 1);
-    if (!state)
-        return 2;
-
     shared = calloc(OodleNetwork1_Shared_Size(HASHTABLE_BITS), 1);
-    if (!shared)
-        return 2;
 
-    window = calloc(WINDOW_SIZE, 1);
-    if (!window)
+    if (!state || !shared)
         return 2;
 
     // Patch the import table (in memory) for the game image,
@@ -235,9 +225,6 @@ DWORD init(const char *lpLibFileName)
 
 void deinit()
 {
-    free(window);
-    window = NULL;
-
     free(shared);
     shared = NULL;
 
