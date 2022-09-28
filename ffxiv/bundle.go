@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"time"
 
 	"github.com/klauspost/compress/zlib"
@@ -160,7 +160,7 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 		}
 		defer reader.Close()
 
-		if decompressed, err = ioutil.ReadAll(reader); err != nil {
+		if decompressed, err = io.ReadAll(reader); err != nil {
 			return nil, fmt.Errorf("read all from zlib reader: %w", err)
 		}
 
