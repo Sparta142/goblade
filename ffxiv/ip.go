@@ -10,6 +10,7 @@ var DataCenterCIDRs = [...]string{
 	"204.2.229.64/26",  // North America: Aether, Crystal, Primal
 	"195.82.50.32/27",  // Europe: Chaos, Light
 	"124.150.157.0/26", // Japan: Elemental, Gaia, Mana
+	"202.67.52.192/26", // Japan: Meteor
 	"153.254.80.64/27", // Oceania: Materia
 }
 
