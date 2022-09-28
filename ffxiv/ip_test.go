@@ -110,6 +110,7 @@ func TestAllKnownWorldIPs(t *testing.T) {
 	}
 
 	for _, addr := range addresses {
+		addr := addr
 		t.Run(addr, func(t *testing.T) {
 			t.Parallel()
 			ip := net.ParseIP(addr)
