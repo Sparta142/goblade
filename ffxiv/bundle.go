@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"time"
+	"unsafe"
 
 	"github.com/klauspost/compress/zlib"
 	"github.com/sparta142/goblade/oodle"
@@ -40,7 +41,7 @@ var (
 
 const (
 	bundleLengthOffset = 24
-	bundleLengthSize   = 2 // sizeof(uint16)
+	bundleLengthSize   = unsafe.Sizeof(Bundle{}.Length)
 	bundleHeaderSize   = 40
 )
 
@@ -55,7 +56,7 @@ type Bundle struct {
 	Epoch uint64 `json:"epoch"`
 
 	// The total length of the bundle, in bytes (including the header).
-	Length uint16 `json:"length"`
+	Length uint32 `json:"length"`
 
 	UncompressedLength uint32 `json:"uncompressedLength"`
 
@@ -104,7 +105,7 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 	}
 
 	b.Epoch = byteOrder.Uint64(data[16:24])
-	b.Length = byteOrder.Uint16(data[24:26])
+	b.Length = byteOrder.Uint32(data[24:28])
 	b.ConnectionType = byteOrder.Uint16(data[28:30])
 	b.Encoding = EncodingType(data[32])
 	b.Compression = CompressionType(data[33])
