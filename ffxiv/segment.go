@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -77,8 +78,8 @@ func (s *Segment) UnmarshalBinary(data []byte) error {
 		}
 
 	default:
-		log.Debugf("Segment has unknown type %d; storing payload as []byte", s.Type)
-		s.Payload = payloadData
+		log.Debugf("Segment has unknown type %d; storing payload as cloned []byte", s.Type)
+		s.Payload = slices.Clone(payloadData)
 	}
 
 	return nil
@@ -104,7 +105,8 @@ func (i *Ipc) UnmarshalBinary(data []byte) error {
 	i.ServerID = byteOrder.Uint16(data[6:8])
 	i.Epoch = byteOrder.Uint32(data[8:12])
 
-	i.Data = data[16:]
+	// Copy the IPC payload so it doesn't change without us noticing
+	i.Data = slices.Clone(data[16:])
 
 	return nil
 }
