@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/klauspost/compress/zlib"
+	log "github.com/sirupsen/logrus"
 	"github.com/sparta142/goblade/oodle"
 )
 
@@ -152,6 +153,10 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 
 	switch compression {
 	case CompressionNone:
+		if rawLen != 0 && rawLen != uint32(len(data)) {
+			log.Warnf("Mismatched rawLen (%d) and data length (%d) for uncompressed data", rawLen, len(data))
+		}
+
 		return data, nil
 
 	case CompressionZlib:
