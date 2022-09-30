@@ -1,8 +1,9 @@
 #include <malloc.h>  // calloc, free, malloc
 #include <memory.h>  // memcpy_s
 #include <stdbool.h> // bool, false, true
+#include <stdint.h>  // int32_t, int64_t
 #include <stdio.h>   // sprintf_s
-#include <stdlib.h>  // abort
+#include <string.h>  // memset
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -12,31 +13,32 @@
 #define HASHTABLE_BITS 19
 #define WINDOW_SIZE 0x16000
 #define MAX_DECOMPRESSED_SIZE (1 << 16)
+#define OODLE_ALIGNMENT 16
 
-static __int64 (*OodleNetworkUDP_State_Size)();
+static int64_t (*OodleNetworkUDP_State_Size)();
 
-static __int64 (*OodleNetwork1_Shared_Size)(char n);
+static int64_t (*OodleNetwork1_Shared_Size)(char n);
 
-static __int64 (*OodleNetwork1UDP_Decode)(
+static int64_t (*OodleNetwork1UDP_Decode)(
     const void *state,
     const void *shared,
     const void *comp,
-    __int64 compLen,
+    int64_t compLen,
     void *raw,
-    __int64 rawLen);
+    int64_t rawLen);
 
 static void (*OodleNetwork1_Shared_SetWindow)(
     void *data,
-    int htbits,
+    int32_t htbits,
     const void *windowv,
-    int window_size);
+    int32_t window_size);
 
 static void (*OodleNetwork1UDP_Train)(
     void *state,
     const void *shared,
     const void **training_packet_pointers,
-    const int *training_packet_sizes,
-    int num_training_packets);
+    const int32_t *training_packet_sizes,
+    int32_t num_training_packets);
 
 /**
  * @brief Scans an HMODULE's image for a byte pattern.
@@ -128,7 +130,8 @@ static bool fixupImports(HMODULE hModule)
                 char fe[100] = {0};
                 sprintf_s(fe, sizeof(fe), "#%u", ord);
 
-                pfnNew = GetProcAddress(hImportDLL, (LPCSTR)ord);
+                // pfnNew = GetProcAddress(hImportDLL, (LPCSTR)ord); // TODO
+                pfnNew = GetProcAddress(hImportDLL, fe);
             }
             else
             {
@@ -159,19 +162,24 @@ static bool fixupImports(HMODULE hModule)
     return true;
 }
 
+static void *calloc_aligned(size_t size)
+{
+    return memset(_aligned_malloc(size, OODLE_ALIGNMENT), 0, size);
+}
+
 /**
  * @brief The module handle to the game executable (loaded as a library).
  */
 static HMODULE hModule = NULL;
 
-static unsigned char *state = NULL;
-static unsigned char *shared = NULL;
-static unsigned char *window[WINDOW_SIZE];
-
 /**
  * @brief A critical section object guarding the use of OodleNetwork1UDP_Decode.
  */
 static CRITICAL_SECTION criticalSection;
+
+static void *window = NULL;
+static void *state = NULL;
+static void *shared = NULL;
 
 DWORD init(const char *lpLibFileName)
 {
@@ -204,9 +212,11 @@ DWORD init(const char *lpLibFileName)
         return 1;
 
     // Allocate memory for Oodle operations
-    // Note: These *must* be calloc, otherwise it will mysteriously crash on decode
-    state = calloc(OodleNetworkUDP_State_Size(), 1);
-    shared = calloc(OodleNetwork1_Shared_Size(HASHTABLE_BITS), 1);
+    // These *must* be zero-initialized and aligned,
+    // otherwise it will mysteriously crash
+    window = calloc_aligned(WINDOW_SIZE);
+    state = calloc_aligned(OodleNetworkUDP_State_Size());
+    shared = calloc_aligned(OodleNetwork1_Shared_Size(HASHTABLE_BITS));
 
     if (!state || !shared)
         return 2;
@@ -225,11 +235,14 @@ DWORD init(const char *lpLibFileName)
 
 void deinit()
 {
-    free(shared);
+    _aligned_free(shared);
     shared = NULL;
 
-    free(state);
+    _aligned_free(state);
     state = NULL;
+
+    _aligned_free(window);
+    window = NULL;
 
     DeleteCriticalSection(&criticalSection);
 
@@ -237,7 +250,7 @@ void deinit()
     hModule = NULL;
 }
 
-bool decode(void *comp, __int64 compLen, void *raw, __int64 rawLen)
+bool decode(void *comp, int64_t compLen, void *raw, int64_t rawLen)
 {
     EnterCriticalSection(&criticalSection);
     bool ret = OodleNetwork1UDP_Decode(state, shared, comp, compLen, raw, rawLen);

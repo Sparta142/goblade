@@ -17,7 +17,6 @@ import (
 	"errors"
 	"os"
 	"reflect"
-	"sync"
 	"unsafe"
 
 	log "github.com/sirupsen/logrus"
@@ -36,8 +35,6 @@ var exePaths = [...]string{
 	"${ProgramFiles(x86)}\\SquareEnix\\FINAL FANTASY XIV - A Realm Reborn\\game\\" + exeName,     // Square Enix
 	"${ProgramFiles(x86)}\\Steam\\steamapps\\common\\FINAL FANTASY XIV Online\\game\\" + exeName, // Steam
 }
-
-var oodleLock sync.Mutex
 
 func Decode(comp, raw []byte) error {
 	// Get a pointer to the beginning of the slice data.
@@ -74,9 +71,6 @@ func findGameExe() (string, error) {
 }
 
 func init() {
-	oodleLock.Lock()
-	defer oodleLock.Unlock()
-
 	// Get the location of the game executable
 	exe, err := findGameExe()
 	if err != nil {
