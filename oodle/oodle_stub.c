@@ -1,23 +1,27 @@
-#include <malloc.h>  // calloc, free, malloc
+#include <malloc.h>  // _aligned_free, _aligned_malloc
 #include <memory.h>  // memcpy_s
 #include <stdbool.h> // bool, false, true
+#include <stddef.h>  // size_t
 #include <stdint.h>  // int32_t, int64_t
 #include <stdio.h>   // sprintf_s
+#include <stdlib.h>  // abort
 #include <string.h>  // memset
 
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <DbgHelp.h>
-#include <Psapi.h>
+#include <Windows.h> // ...
+#include <DbgHelp.h> // ImageDirectoryEntryToDataEx
+#include <Psapi.h>   // GetModuleInformation, MODULEINFO
+
+#include <xmmintrin.h> // __m128
 
 #define HASHTABLE_BITS 19
 #define WINDOW_SIZE 0x16000
 #define MAX_DECOMPRESSED_SIZE (1 << 16)
-#define OODLE_ALIGNMENT 16
+#define SSE_ALIGNMENT _Alignof(__m128)
 
-static int64_t (*OodleNetworkUDP_State_Size)();
+static int64_t (*OodleNetworkUDP_State_Size)() = NULL;
 
-static int64_t (*OodleNetwork1_Shared_Size)(char n);
+static int64_t (*OodleNetwork1_Shared_Size)(char n) = NULL;
 
 static int64_t (*OodleNetwork1UDP_Decode)(
     const void *state,
@@ -25,20 +29,20 @@ static int64_t (*OodleNetwork1UDP_Decode)(
     const void *comp,
     int64_t compLen,
     void *raw,
-    int64_t rawLen);
+    int64_t rawLen) = NULL;
 
 static void (*OodleNetwork1_Shared_SetWindow)(
     void *data,
     int32_t htbits,
     const void *windowv,
-    int32_t window_size);
+    int32_t window_size) = NULL;
 
 static void (*OodleNetwork1UDP_Train)(
     void *state,
     const void *shared,
     const void **training_packet_pointers,
     const int32_t *training_packet_sizes,
-    int32_t num_training_packets);
+    int32_t num_training_packets) = NULL;
 
 /**
  * @brief Scans an HMODULE's image for a byte pattern.
@@ -49,25 +53,26 @@ static void (*OodleNetwork1UDP_Train)(
  * @param patternLen The number of elements in pattern
  * @return `void*` The pointer to the beginning of the found pattern, or NULL if not found
  */
-static void *scanImage(HMODULE hModule, int pattern[], unsigned long long patternLen)
+static void *scan_image(const HMODULE hModule, const int pattern[], const size_t patternLen)
 {
     MODULEINFO modinfo;
     if (!GetModuleInformation(GetCurrentProcess(), hModule, &modinfo, sizeof(modinfo)))
         return NULL;
 
     // Calculate the search bounds
-    unsigned char *start = modinfo.lpBaseOfDll;
-    unsigned char *end = start + modinfo.SizeOfImage - patternLen;
+    unsigned char *const start = modinfo.lpBaseOfDll;
+    unsigned char *const end = start + modinfo.SizeOfImage - patternLen;
 
     // Scan the image for the pattern
     for (unsigned char *offset = start; offset < end; ++offset)
     {
         bool matched = true;
 
-        for (unsigned long long i = 0; i < patternLen; ++i)
+        for (size_t i = 0; i < patternLen; ++i)
         {
             if ((pattern[i] != -1) && (pattern[i] != offset[i]))
             {
+                // The desired byte is not a wildcard and it does not match the candidate byte
                 matched = false;
                 break;
             }
@@ -83,12 +88,12 @@ static void *scanImage(HMODULE hModule, int pattern[], unsigned long long patter
 
 // Look at me, I am the PE loader now.
 // https://www.codeproject.com/Articles/1045674/Load-EXE-as-DLL-Mission-Possible
-static bool fixupImports(HMODULE hModule)
+static bool fixup_imports(HMODULE hModule)
 {
     ULONG size;
     PIMAGE_IMPORT_DESCRIPTOR pImportDesc = ImageDirectoryEntryToDataEx(
         hModule,
-        TRUE,
+        true,
         IMAGE_DIRECTORY_ENTRY_IMPORT,
         &size,
         NULL);
@@ -98,7 +103,7 @@ static bool fixupImports(HMODULE hModule)
 
     for (; pImportDesc->Name; ++pImportDesc)
     {
-        PSTR pszModName = (PBYTE)hModule + pImportDesc->Name;
+        const PSTR pszModName = (PCHAR)hModule + pImportDesc->Name;
         if (!pszModName)
             break;
 
@@ -107,19 +112,17 @@ static bool fixupImports(HMODULE hModule)
         if (stricmp(pszModName, "kernel32.dll") != 0)
             continue;
 
-        HINSTANCE hImportDLL = LoadLibraryA(pszModName);
+        const HINSTANCE hImportDLL = LoadLibraryA(pszModName);
         if (!hImportDLL)
             return false;
 
         // Get caller's import address table (IAT) for the callee's functions
-        PIMAGE_THUNK_DATA pThunk = (PIMAGE_THUNK_DATA)((PBYTE)hModule + pImportDesc->FirstThunk);
-
-        for (; pThunk->u1.Function; ++pThunk)
+        for (PIMAGE_THUNK_DATA pThunk = (PIMAGE_THUNK_DATA)((PBYTE)hModule + pImportDesc->FirstThunk); pThunk->u1.Function; ++pThunk)
         {
             FARPROC pfnNew = 0;
 
             // Get the address of the function address
-            PROC *ppfn = (PROC *)&pThunk->u1.Function;
+            const PROC *ppfn = (PROC *)&pThunk->u1.Function;
             if (!ppfn)
                 return false;
 
@@ -130,12 +133,11 @@ static bool fixupImports(HMODULE hModule)
                 char fe[100] = {0};
                 sprintf_s(fe, sizeof(fe), "#%u", ord);
 
-                // pfnNew = GetProcAddress(hImportDLL, (LPCSTR)ord); // TODO
                 pfnNew = GetProcAddress(hImportDLL, fe);
             }
             else
             {
-                PSTR fName = (PSTR)hModule + pThunk->u1.Function + 2;
+                const PSTR fName = (PSTR)hModule + pThunk->u1.Function + 2;
                 if (!fName)
                     break;
 
@@ -162,9 +164,16 @@ static bool fixupImports(HMODULE hModule)
     return true;
 }
 
-static void *calloc_aligned(size_t size)
+/**
+ * @brief Allocates a zero-initialized, aligned (to SSE_ALIGNMENT)
+ * buffer of the specified size.
+ *
+ * @param size The number of bytes to allocate.
+ * @return `void*` The pointer to the beginning of newly allocated memory.
+ */
+static void *aligned_calloc(const size_t size)
 {
-    return memset(_aligned_malloc(size, OODLE_ALIGNMENT), 0, size);
+    return memset(_aligned_malloc(size, SSE_ALIGNMENT), 0, size);
 }
 
 /**
@@ -181,7 +190,7 @@ static void *window = NULL;
 static void *state = NULL;
 static void *shared = NULL;
 
-DWORD init(const char *lpLibFileName)
+DWORD init(const LPCSTR lpLibFileName)
 {
     if (hModule != NULL)
         return 0;
@@ -193,42 +202,44 @@ DWORD init(const char *lpLibFileName)
     if (!hModule)
         return GetLastError();
 
+    // Patch the import table (in memory) for the game image,
+    // so that it can call imported functions image without crashing.
+    if (!fixup_imports(hModule))
+        return 3;
+
     // B8 ?? ?? ?? ?? C3 CC CC CC CC CC CC CC CC CC CC 40 55 56
-    OodleNetworkUDP_State_Size = scanImage(hModule, (int[]){0xB8, -1, -1, -1, -1, 0xC3, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x40, 0x55, 0x56}, 19);
+    OodleNetworkUDP_State_Size = scan_image(hModule, (int[]){0xB8, -1, -1, -1, -1, 0xC3, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x40, 0x55, 0x56}, 19);
 
     // B8 ?? ?? ?? ?? 48 D3 E0 48 8D 04 C5
-    OodleNetwork1_Shared_Size = scanImage(hModule, (int[]){0xB8, -1, -1, -1, -1, 0x48, 0xD3, 0xE0, 0x48, 0x8D, 0x04, 0xC5}, 12);
+    OodleNetwork1_Shared_Size = scan_image(hModule, (int[]){0xB8, -1, -1, -1, -1, 0x48, 0xD3, 0xE0, 0x48, 0x8D, 0x04, 0xC5}, 12);
 
     // 48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 20 41 8B D9 49 8B F0
-    OodleNetwork1_Shared_SetWindow = scanImage(hModule, (int[]){0x48, 0x89, 0x5C, 0x24, -1, 0x48, 0x89, 0x6C, 0x24, -1, 0x48, 0x89, 0x74, 0x24, -1, 0x48, 0x89, 0x7C, 0x24, -1, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x20, 0x41, 0x8B, 0xD9, 0x49, 0x8B, 0xF0}, 32);
+    OodleNetwork1_Shared_SetWindow = scan_image(hModule, (int[]){0x48, 0x89, 0x5C, 0x24, -1, 0x48, 0x89, 0x6C, 0x24, -1, 0x48, 0x89, 0x74, 0x24, -1, 0x48, 0x89, 0x7C, 0x24, -1, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x20, 0x41, 0x8B, 0xD9, 0x49, 0x8B, 0xF0}, 32);
 
     // 48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC 30 48 8B F2
-    OodleNetwork1UDP_Train = scanImage(hModule, (int[]){0x48, 0x89, 0x5C, 0x24, -1, 0x48, 0x89, 0x6C, 0x24, -1, 0x48, 0x89, 0x74, 0x24, -1, 0x48, 0x89, 0x7C, 0x24, -1, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0xF2}, 29);
+    OodleNetwork1UDP_Train = scan_image(hModule, (int[]){0x48, 0x89, 0x5C, 0x24, -1, 0x48, 0x89, 0x6C, 0x24, -1, 0x48, 0x89, 0x74, 0x24, -1, 0x48, 0x89, 0x7C, 0x24, -1, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0xF2}, 29);
 
     // 40 53 48 83 EC 30 48 8B 44 24 ?? 49 8B D9 48 85 C0
-    OodleNetwork1UDP_Decode = scanImage(hModule, (int[]){0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0x44, 0x24, -1, 0x49, 0x8B, 0xD9, 0x48, 0x85, 0xC0}, 17);
+    OodleNetwork1UDP_Decode = scan_image(hModule, (int[]){0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x48, 0x8B, 0x44, 0x24, -1, 0x49, 0x8B, 0xD9, 0x48, 0x85, 0xC0}, 17);
 
     if (!OodleNetworkUDP_State_Size || !OodleNetwork1_Shared_Size || !OodleNetwork1_Shared_SetWindow || !OodleNetwork1UDP_Train || !OodleNetwork1UDP_Decode)
         return 1;
 
-    // Allocate memory for Oodle operations
+    // Allocate memory for Oodle operations.
     // These *must* be zero-initialized and aligned,
-    // otherwise it will mysteriously crash
-    window = calloc_aligned(WINDOW_SIZE);
-    state = calloc_aligned(OodleNetworkUDP_State_Size());
-    shared = calloc_aligned(OodleNetwork1_Shared_Size(HASHTABLE_BITS));
+    // otherwise it will mysteriously crash.
+    window = aligned_calloc(WINDOW_SIZE);
+    state = aligned_calloc(OodleNetworkUDP_State_Size());
+    shared = aligned_calloc(OodleNetwork1_Shared_Size(HASHTABLE_BITS));
 
-    if (!state || !shared)
+    if (!(window && state && shared))
         return 2;
 
-    // Patch the import table (in memory) for the game image,
-    // so that it can call imported functions image without crashing.
-    if (!fixupImports(hModule))
-        return 3;
-
     // Set up Oodle
+    EnterCriticalSection(&criticalSection);
     OodleNetwork1_Shared_SetWindow(shared, HASHTABLE_BITS, window, WINDOW_SIZE);
     OodleNetwork1UDP_Train(state, shared, NULL, NULL, 0);
+    LeaveCriticalSection(&criticalSection);
 
     return 0;
 }
@@ -244,16 +255,38 @@ void deinit()
     _aligned_free(window);
     window = NULL;
 
-    DeleteCriticalSection(&criticalSection);
+    OodleNetwork1UDP_Decode = NULL;
+    OodleNetwork1UDP_Train = NULL;
+    OodleNetwork1_Shared_SetWindow = NULL;
+    OodleNetwork1_Shared_Size = NULL;
+    OodleNetworkUDP_State_Size = NULL;
 
     FreeLibrary(hModule);
     hModule = NULL;
+
+    DeleteCriticalSection(&criticalSection);
 }
 
-bool decode(void *comp, int64_t compLen, void *raw, int64_t rawLen)
+bool decode(const void *comp, const int64_t compLen, void *raw, const int64_t rawLen)
 {
+    if (rawLen > MAX_DECOMPRESSED_SIZE)
+        abort();
+
+    // Copy the compressed data into aligned storage
+    _Alignas(SSE_ALIGNMENT) unsigned char comp_a[MAX_DECOMPRESSED_SIZE];
+    if (memcpy_s(comp_a, sizeof(comp_a), comp, compLen) != 0)
+        return false;
+
+    _Alignas(SSE_ALIGNMENT) unsigned char raw_a[MAX_DECOMPRESSED_SIZE];
+
+    // Decompress the data
     EnterCriticalSection(&criticalSection);
-    bool ret = OodleNetwork1UDP_Decode(state, shared, comp, compLen, raw, rawLen);
+    const bool success = OodleNetwork1UDP_Decode(state, shared, comp_a, compLen, raw_a, rawLen);
     LeaveCriticalSection(&criticalSection);
-    return ret;
+
+    // Copy the decompressed result back into unaligned storage
+    if (success)
+        memcpy(raw, raw_a, rawLen);
+
+    return success;
 }

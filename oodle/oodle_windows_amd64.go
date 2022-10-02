@@ -1,15 +1,16 @@
 package oodle
 
 /*
-#cgo windows LDFLAGS: -ldbghelp
+#cgo windows LDFLAGS: -ldbghelp -lpsapi
+#cgo windows CFLAGS: -Wall -Wextra
 
 #include <minwindef.h>
 #include <stdbool.h>
-#include <stdlib.h>
+#include <stdint.h>
 
-DWORD init(const char *lpLibFileName);
+DWORD init(const LPCSTR lpLibFileName);
 void deinit();
-bool decode(void *comp, __int64 compLen, void* raw, __int64 rawLen);
+bool decode(const void *comp, const int64_t compLen, void* raw, const int64_t rawLen);
 */
 import "C"
 
