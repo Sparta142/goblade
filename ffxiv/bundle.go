@@ -154,7 +154,10 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 	switch compression {
 	case CompressionNone:
 		if rawLen != 0 && rawLen != uint32(len(data)) {
-			log.Warnf("Mismatched rawLen (%d) and data length (%d) for uncompressed data", rawLen, len(data))
+			log.WithFields(log.Fields{
+				"raw_length":  rawLen,
+				"data_length": len(data),
+			}).Warnf("Mismatched lengths for uncompressed data")
 		}
 
 		return data, nil
