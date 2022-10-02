@@ -1,22 +1,23 @@
 package oodle
 
 /*
-#cgo windows LDFLAGS: -ldbghelp
+#cgo windows LDFLAGS: -ldbghelp -lpsapi
+#cgo windows CFLAGS: -Wall -Wextra
 
 #include <minwindef.h>
 #include <stdbool.h>
-#include <stdlib.h>
+#include <stdint.h>
 
-DWORD init(const char *lpLibFileName);
+DWORD init(const LPCSTR lpLibFileName);
 void deinit();
-void *decode(void *comp, __int64 compLen, __int64 rawLen);
+bool decode(const void *comp, const int64_t compLen, void* raw, const int64_t rawLen);
 */
 import "C"
 
 import (
 	"errors"
 	"os"
-	"sync"
+	"reflect"
 	"unsafe"
 
 	log "github.com/sirupsen/logrus"
@@ -36,25 +37,24 @@ var exePaths = [...]string{
 	"${ProgramFiles(x86)}\\Steam\\steamapps\\common\\FINAL FANTASY XIV Online\\game\\" + exeName, // Steam
 }
 
-var oodleLock sync.Mutex
+func Decode(comp, raw []byte) error {
+	// Get a pointer to the beginning of the slice data.
+	// This is cursed, but saves us a malloc by not marshaling data into C memory.
+	compHdr := (*reflect.SliceHeader)(unsafe.Pointer(&comp))
+	rawHdr := (*reflect.SliceHeader)(unsafe.Pointer(&raw))
 
-func Decode(payload []byte, rawLen uint32) ([]byte, error) {
-	oodleLock.Lock()
-	defer oodleLock.Unlock()
-
-	// Marshal the compressed payload into C memory
-	comp := C.CBytes(payload)
-	defer C.free(comp)
-
-	// Decompress it
-	raw := C.decode(comp, C.longlong(len(payload)), C.longlong(rawLen))
-	if raw == unsafe.Pointer(nil) {
-		return nil, ErrDecompressionFailed
+	// Decompress the slice
+	success := C.decode(
+		unsafe.Pointer(compHdr.Data),
+		C.longlong(len(comp)),
+		unsafe.Pointer(rawHdr.Data),
+		C.longlong(len(raw)),
+	)
+	if !success {
+		return ErrDecompressionFailed
 	}
-	defer C.free(raw)
 
-	// Marshal the decompressed data back into Go memory and return it
-	return C.GoBytes(raw, C.int(rawLen)), nil
+	return nil
 }
 
 func findGameExe() (string, error) {
@@ -72,9 +72,6 @@ func findGameExe() (string, error) {
 }
 
 func init() {
-	oodleLock.Lock()
-	defer oodleLock.Unlock()
-
 	// Get the location of the game executable
 	exe, err := findGameExe()
 	if err != nil {

@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"time"
+	"unsafe"
 
 	"github.com/klauspost/compress/zlib"
+	log "github.com/sirupsen/logrus"
 	"github.com/sparta142/goblade/oodle"
 )
 
@@ -40,7 +42,7 @@ var (
 
 const (
 	bundleLengthOffset = 24
-	bundleLengthSize   = 2 // sizeof(uint16)
+	bundleLengthSize   = unsafe.Sizeof(Bundle{}.Length)
 	bundleHeaderSize   = 40
 )
 
@@ -55,7 +57,7 @@ type Bundle struct {
 	Epoch uint64 `json:"epoch"`
 
 	// The total length of the bundle, in bytes (including the header).
-	Length uint16 `json:"length"`
+	Length uint32 `json:"length"`
 
 	UncompressedLength uint32 `json:"uncompressedLength"`
 
@@ -104,7 +106,7 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 	}
 
 	b.Epoch = byteOrder.Uint64(data[16:24])
-	b.Length = byteOrder.Uint16(data[24:26])
+	b.Length = byteOrder.Uint32(data[24:28])
 	b.ConnectionType = byteOrder.Uint16(data[28:30])
 	b.Encoding = EncodingType(data[32])
 	b.Compression = CompressionType(data[33])
@@ -151,6 +153,13 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 
 	switch compression {
 	case CompressionNone:
+		if rawLen != 0 && rawLen != uint32(len(data)) {
+			log.WithFields(log.Fields{
+				"raw_length":  rawLen,
+				"data_length": len(data),
+			}).Warnf("Mismatched lengths for uncompressed data")
+		}
+
 		return data, nil
 
 	case CompressionZlib:
@@ -166,7 +175,8 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 
 	case CompressionOodle:
 		var err error
-		if decompressed, err = oodle.Decode(data, rawLen); err != nil {
+		decompressed = make([]byte, rawLen)
+		if err = oodle.Decode(data, decompressed); err != nil {
 			return nil, fmt.Errorf("oodle decode: %w", err)
 		}
 
