@@ -1,4 +1,3 @@
-#ifdef _WIN32
 #include <malloc.h>  // _aligned_free, _aligned_malloc
 #include <memory.h>  // memcpy_s
 #include <stdbool.h> // bool, false, true
@@ -291,6 +290,3 @@ bool decode(const void *comp, const int64_t compLen, void *raw, const int64_t ra
 
     return success;
 }
-#else // #ifdef _WIN32
-#warning "Platform not supported"
-#endif // #ifdef _WIN32
