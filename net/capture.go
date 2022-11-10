@@ -70,27 +70,10 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 				return nil
 			}
 
-			tcp := packet.TransportLayer().(*layers.TCP)
-			net := packet.NetworkLayer()
-
-			if err := tcp.SetNetworkLayerForChecksum(net); err != nil {
-				// This is probably not a fatal error for our purposes
-				log.WithError(err).Warn("Failed to set network layer for checksum")
-			}
-
-			assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
+			handlePacket(packet, assembler)
 
 		case <-ticker.C:
-			log.Debug("Starting periodic stream maintenance")
-
-			flushed, closed := assembler.FlushWithOptions(reassembly.FlushOptions{
-				T: time.Now().Add(-flushStreamAge),
-			})
-
-			log.WithFields(log.Fields{
-				"flushed": flushed,
-				"closed":  closed,
-			}).Debug("Stream maintenance finished")
+			handleTick(assembler)
 
 		case <-ctx.Done():
 			return nil
@@ -110,4 +93,29 @@ func newCaptureContext(packet gopacket.Packet) *captureContext {
 	return &captureContext{
 		CaptureInfo: packet.Metadata().CaptureInfo,
 	}
+}
+
+func handlePacket(packet gopacket.Packet, assembler *reassembly.Assembler) {
+	tcp := packet.TransportLayer().(*layers.TCP)
+	net := packet.NetworkLayer()
+
+	if err := tcp.SetNetworkLayerForChecksum(net); err != nil {
+		// This is probably not a fatal error for our purposes
+		log.WithError(err).Warn("Failed to set network layer for checksum")
+	}
+
+	assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
+}
+
+func handleTick(assembler *reassembly.Assembler) {
+	log.Debug("Starting periodic stream maintenance")
+
+	flushed, closed := assembler.FlushWithOptions(reassembly.FlushOptions{
+		T: time.Now().Add(-flushStreamAge),
+	})
+
+	log.WithFields(log.Fields{
+		"flushed": flushed,
+		"closed":  closed,
+	}).Debug("Stream maintenance finished")
 }
