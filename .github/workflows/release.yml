@@ -15,17 +15,22 @@ jobs:
       - name: Install UPX
         run: choco install -y upx --version=4.0.0
 
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - run: git fetch --force --tags
+      - name: Fetch tags
+        run: git fetch --force --tags
 
-      - uses: actions/setup-go@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: goreleaser/goreleaser-action@v3
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v3
         with:
           distribution: goreleaser
           version: latest
