@@ -9,10 +9,8 @@ builds:
   - &main_build
     env:
       - CGO_ENABLED=1
-    goos:
-      - windows
-    goarch:
-      - amd64
+    targets:
+      - windows_amd64_v1
 
     # https://goreleaser.com/customization/build/#reproducible-builds
     mod_timestamp: "{{ .CommitTimestamp }}"
@@ -20,16 +18,17 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/sparta142/goblade/cmd.version={{.Version}}
-      - -X github.com/sparta142/goblade/cmd.gitSummary={{.Summary}}
-      - -X github.com/sparta142/goblade/cmd.commitDate={{.CommitDate}}
+      - -X github.com/sparta142/goblade/cmd.version={{ .Version }}
+      - -X github.com/sparta142/goblade/cmd.gitSummary={{ .Summary }}
+      - -X github.com/sparta142/goblade/cmd.commitDate={{ .CommitDate }}
       - -X github.com/sparta142/goblade/cmd.builtBy=goreleaser
 
   - <<: *main_build
     id: goblade-packed
     binary: goblade-packed
     hooks:
-      post: upx --best {{ .Path }}
+      post:
+        - upx --best {{ .Path }}
 
 archives:
   - wrap_in_directory: true
