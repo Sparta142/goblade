@@ -9,12 +9,16 @@ linters:
     - wsl
 
     # Deprecated linters
+    - deadcode
     - exhaustivestruct
     - golint
     - ifshort
-    - maligned
-    - scopelint
     - interfacer
+    - maligned
+    - nosnakecase
+    - scopelint
+    - structcheck
+    - varcheck
 
 linters-settings:
   exhaustruct:
