@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/inconshreveable/mousetrap"
@@ -14,10 +15,16 @@ var (
 	region  = string(ffxiv.RegionGlobal)
 )
 
+// Version info from ldflags.
+var (
+	version    = "dev"
+	gitSummary = "unknown"
+)
+
 var rootCmd = &cobra.Command{
 	Use:                   "goblade",
 	Short:                 "Lightweight, embeddable tool for capturing FINAL FANTASY XIV network traffic.",
-	Version:               "0.3.0",
+	Version:               fmt.Sprintf("%s (%s)", version, gitSummary),
 	DisableFlagsInUseLine: true,
 	Example: strings.Join([]string{
 		"goblade live",

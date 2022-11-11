@@ -19,7 +19,11 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.CommitDate}} -X main.builtBy=goreleaser
+      - -s -w
+      - -X github.com/sparta142/goblade/cmd.version={{.Version}}
+      - -X github.com/sparta142/goblade/cmd.gitSummary={{.Summary}}
+      - -X github.com/sparta142/goblade/cmd.commitDate={{.CommitDate}}
+      - -X github.com/sparta142/goblade/cmd.builtBy=goreleaser
 
   - <<: *main_build
     id: goblade-packed
