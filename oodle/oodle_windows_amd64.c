@@ -131,7 +131,7 @@ static bool fixup_imports(HMODULE hModule)
                 size_t ord = IMAGE_ORDINAL(pThunk->u1.Ordinal);
 
                 char fe[100] = {0};
-                sprintf_s(fe, sizeof(fe), "#%u", ord);
+                sprintf_s(fe, sizeof(fe), "#%zu", ord);
 
                 pfnNew = GetProcAddress(hImportDLL, fe);
             }
