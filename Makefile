@@ -7,6 +7,9 @@ endif
 .PHONY: snapshot test benchmark clean
 .NOTPARALLEL: benchmark
 
+build:
+	go build .
+
 snapshot: test
 	goreleaser release --rm-dist --snapshot
 
