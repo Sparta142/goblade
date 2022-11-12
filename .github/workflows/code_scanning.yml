@@ -8,8 +8,7 @@ on:
   schedule:
     - cron: "28 4 * * 5"
 
-permissions:
-  contents: read
+permissions: read-all
 
 env:
   CGO_ENABLED: 1
