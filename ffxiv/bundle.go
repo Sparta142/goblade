@@ -37,7 +37,6 @@ var (
 	ErrBadCompression = errors.New("ffxiv: bad compression type")
 	ErrBadSegmentType = errors.New("ffxiv: bad segment type")
 	ErrNotEnoughData  = errors.New("ffxiv: not enough data")
-	ErrTooMuchData    = errors.New("ffxiv: too much data in bundle slice")
 )
 
 const (
@@ -142,7 +141,7 @@ func (b *Bundle) unmarshalPayload(data []byte) error {
 
 	// Sanity check: the entire payload should have been consumed
 	if len(payloadData) != 0 {
-		return ErrTooMuchData
+		panic("did not consume entire payload")
 	}
 
 	return nil
