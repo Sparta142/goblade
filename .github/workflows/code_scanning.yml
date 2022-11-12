@@ -57,8 +57,10 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      security-events: write
+      actions: read
+      contents: read
       id-token: write
+      security-events: write
 
     steps:
       - name: Checkout
