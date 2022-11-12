@@ -41,3 +41,5 @@ func (fac *tcpStreamFactory) New( //nolint:ireturn // To satisfy the reassembly.
 func (fac *tcpStreamFactory) Wait() {
 	fac.wg.Wait()
 }
+
+var _ reassembly.StreamFactory = (*tcpStreamFactory)(nil)

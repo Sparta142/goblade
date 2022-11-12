@@ -119,3 +119,5 @@ func handleTick(assembler *reassembly.Assembler) {
 		"closed":  closed,
 	}).Debug("Stream maintenance finished")
 }
+
+var _ reassembly.AssemblerContext = (*captureContext)(nil)

@@ -178,3 +178,5 @@ func indexFirst(s []byte, seps ...[]byte) int {
 
 	return idx
 }
+
+var _ reassembly.Stream = (*ffxivStream)(nil)
