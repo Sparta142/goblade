@@ -5,12 +5,15 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
   goreleaser:
+    name: GoReleaser
+
     runs-on: windows-latest
+
+    permissions:
+      contents: write
+
     steps:
       - name: Install UPX
         run: choco install -y upx --version=4.0.0
