@@ -1,6 +1,6 @@
 # Goblade
 [![Test](https://github.com/Sparta142/goblade/actions/workflows/test.yml/badge.svg)](https://github.com/Sparta142/goblade/actions/workflows/test.yml)
-[![CodeQL](https://github.com/Sparta142/goblade/actions/workflows/codeql.yml/badge.svg)](https://github.com/Sparta142/goblade/actions/workflows/codeql.yml)
+[![Code scanning](https://github.com/Sparta142/goblade/actions/workflows/code_scanning.yml/badge.svg)](https://github.com/Sparta142/goblade/actions/workflows/code_scanning.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sparta142/goblade)](https://goreportcard.com/report/github.com/sparta142/goblade)  
 Lightweight, embeddable tool for capturing
 [FINAL FANTASY XIV](https://www.finalfantasyxiv.com/) network traffic.
