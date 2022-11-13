@@ -40,4 +40,8 @@
 
 # End of https://www.toptal.com/developers/gitignore/api/go,visualstudiocode
 
+# GoReleaser artifacts
 dist/
+
+# cgo build directory
+_obj/
