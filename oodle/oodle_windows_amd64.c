@@ -190,7 +190,7 @@ static void *window = NULL;
 static void *state = NULL;
 static void *shared = NULL;
 
-DWORD init(const LPCSTR lpLibFileName)
+DWORD setup(const LPCSTR lpLibFileName)
 {
     if (hModule != NULL)
         return 0;
@@ -244,7 +244,7 @@ DWORD init(const LPCSTR lpLibFileName)
     return 0;
 }
 
-void deinit()
+void shutdown()
 {
     _aligned_free(shared);
     shared = NULL;

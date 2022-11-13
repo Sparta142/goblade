@@ -9,3 +9,11 @@ var ErrPlatformNotSupported = errors.New("oodle: platform not supported")
 func Decode(_, _ []byte) error {
 	return ErrPlatformNotSupported
 }
+
+func Setup() error {
+	return ErrPlatformNotSupported
+}
+
+func Shutdown() {
+	// Do nothing
+}

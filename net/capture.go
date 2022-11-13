@@ -13,6 +13,7 @@ import (
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/reassembly"
 	"github.com/sparta142/goblade/ffxiv"
+	"github.com/sparta142/goblade/oodle"
 )
 
 // Filters for potential FFXIV ports and known data center networks.
@@ -53,21 +54,20 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 	ticker := time.NewTicker(flushInterval)
 	defer ticker.Stop()
 
-	defer func() {
-		log.Debug("Flushing all streams")
-		flushed := assembler.FlushAll()
-		log.WithField("count", flushed).Info("Flushed/closed all streams")
+	// Setup Oodle decompression
+	if err := oodle.Setup(); err != nil {
+		log.WithError(err).Errorf("Failed to set up Oodle decompression. This won't end well.")
+	} else {
+		defer oodle.Shutdown()
+	}
 
-		factory.Wait()
-		close(out)
-	}()
-
+Outer:
 	for {
 		select {
 		case packet, ok := <-src.Packets():
 			if !ok {
 				log.Info("No more packets available")
-				return nil
+				break Outer
 			}
 
 			handlePacket(packet, assembler)
@@ -76,9 +76,17 @@ func CaptureContext(ctx context.Context, handle *pcap.Handle, out chan<- ffxiv.B
 			handleTick(assembler)
 
 		case <-ctx.Done():
-			return nil
+			break Outer
 		}
 	}
+
+	// Clean up everything
+	flushed := assembler.FlushAll()
+	log.WithField("count", flushed).Info("Flushed/closed all streams")
+	factory.Wait()
+	close(out)
+
+	return nil
 }
 
 type captureContext struct {
