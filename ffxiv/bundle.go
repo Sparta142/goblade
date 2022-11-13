@@ -2,6 +2,7 @@ package ffxiv
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -193,3 +194,5 @@ func PeekBundleLength(data []byte) int {
 
 	return int(byteOrder.Uint16(data[bundleLengthOffset:]))
 }
+
+var _ encoding.BinaryUnmarshaler = (*Bundle)(nil)

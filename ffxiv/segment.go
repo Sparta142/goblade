@@ -1,6 +1,7 @@
 package ffxiv
 
 import (
+	"encoding"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -126,3 +127,9 @@ func (k *KeepAlive) UnmarshalBinary(data []byte) error {
 
 	return nil
 }
+
+var (
+	_ encoding.BinaryUnmarshaler = (*Segment)(nil)
+	_ encoding.BinaryUnmarshaler = (*Ipc)(nil)
+	_ encoding.BinaryUnmarshaler = (*KeepAlive)(nil)
+)
