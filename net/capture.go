@@ -89,18 +89,10 @@ Outer:
 	return nil
 }
 
-type captureContext struct {
-	gopacket.CaptureInfo
-}
+type captureContext gopacket.CaptureInfo
 
-func (cc *captureContext) GetCaptureInfo() gopacket.CaptureInfo {
-	return cc.CaptureInfo
-}
-
-func newCaptureContext(packet gopacket.Packet) *captureContext {
-	return &captureContext{
-		CaptureInfo: packet.Metadata().CaptureInfo,
-	}
+func (c *captureContext) GetCaptureInfo() gopacket.CaptureInfo {
+	return gopacket.CaptureInfo(*c)
 }
 
 func handlePacket(packet gopacket.Packet, assembler *reassembly.Assembler) {
@@ -112,7 +104,8 @@ func handlePacket(packet gopacket.Packet, assembler *reassembly.Assembler) {
 		log.WithError(err).Warn("Failed to set network layer for checksum")
 	}
 
-	assembler.AssembleWithContext(net.NetworkFlow(), tcp, newCaptureContext(packet))
+	ctx := captureContext(packet.Metadata().CaptureInfo)
+	assembler.AssembleWithContext(net.NetworkFlow(), tcp, &ctx)
 }
 
 func handleTick(assembler *reassembly.Assembler) {
