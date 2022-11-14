@@ -24,12 +24,12 @@ func (fac *tcpStreamFactory) New( //nolint:ireturn // To satisfy the reassembly.
 	src := toAddrPort(netFlow.Src(), transport.Src())
 	dst := toAddrPort(netFlow.Dst(), transport.Dst())
 
-	stream := &ffxivStream{
+	stream := &tcpStream{
 		fsm: *reassembly.NewTCPSimpleFSM(reassembly.TCPSimpleFSMOptions{
 			SupportMissingEstablishment: true,
 		}),
-		toClient: newFfxivHalfStream(src, dst, fac.out),
-		toServer: newFfxivHalfStream(dst, src, fac.out),
+		toClient: newTCPFlow(src, dst, fac.out),
+		toServer: newTCPFlow(dst, src, fac.out),
 	}
 
 	fac.wg.Add(2)

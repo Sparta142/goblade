@@ -17,40 +17,41 @@ import (
 	"github.com/sparta142/goblade/ffxiv"
 )
 
+// The number of bytes in one kibibyte (1 KiB).
 const kibibytes = 1024
 
-type ffxivStream struct {
+type tcpStream struct {
 	fsm                reassembly.TCPSimpleFSM
-	toClient, toServer *ffxivHalfStream
+	toClient, toServer *tcpFlow
 }
 
-type ffxivHalfStream struct {
+type tcpFlow struct {
 	// Whether the reassembler missed a TCP segment
 	lostData atomic.Bool
 
-	r *nio.PipeReader
-	w *nio.PipeWriter
+	reader *nio.PipeReader
+	writer *nio.PipeWriter
 
 	bundles chan<- ffxiv.Bundle
 
 	Src, Dst netip.AddrPort
 }
 
-func newFfxivHalfStream(src, dst netip.AddrPort, bundles chan<- ffxiv.Bundle) *ffxivHalfStream {
+func newTCPFlow(src, dst netip.AddrPort, bundles chan<- ffxiv.Bundle) *tcpFlow {
 	log.Debugf("Creating half stream for %s->%s", src, dst)
 
-	halfStream := &ffxivHalfStream{
+	halfStream := &tcpFlow{
 		bundles: bundles,
 		Src:     src,
 		Dst:     dst,
 	}
 	halfStream.lostData.Store(false)
-	halfStream.r, halfStream.w = nio.Pipe(buffer.New(2 * kibibytes))
+	halfStream.reader, halfStream.writer = nio.Pipe(buffer.New(2 * kibibytes))
 
 	return halfStream
 }
 
-func (s *ffxivStream) Accept(
+func (stream *tcpStream) Accept(
 	tcp *layers.TCP,
 	_ gopacket.CaptureInfo,
 	dir reassembly.TCPFlowDirection,
@@ -58,7 +59,7 @@ func (s *ffxivStream) Accept(
 	start *bool,
 	_ reassembly.AssemblerContext,
 ) bool {
-	if !s.fsm.CheckState(tcp, dir) {
+	if !stream.fsm.CheckState(tcp, dir) {
 		log.Debug("Packet failed state check, ignoring")
 		return false
 	}
@@ -68,14 +69,14 @@ func (s *ffxivStream) Accept(
 	return true
 }
 
-func (s *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.AssemblerContext) {
+func (stream *tcpStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.AssemblerContext) {
 	available, _ := sg.Lengths()
 	if available == 0 {
 		return
 	}
 
 	direction, _, _, skip := sg.Info()
-	half := s.getHalf(direction)
+	half := stream.getHalf(direction)
 
 	if skip > 0 {
 		half.lostData.Store(true)
@@ -86,39 +87,39 @@ func (s *ffxivStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly.As
 
 	// Queue the packets to the Bundle reading logic
 	p := sg.Fetch(available)
-	if _, err := half.w.Write(p); err != nil {
+	if _, err := half.writer.Write(p); err != nil {
 		log.WithError(err).Fatal("Failed to write data to half stream")
 	}
 }
 
-func (s *ffxivStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
-	log.Debugf("Closing stream %v", s)
+func (stream *tcpStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
+	log.Debugf("Closing stream %v", stream)
 
-	s.toClient.w.Close()
-	s.toServer.w.Close()
+	stream.toClient.writer.Close()
+	stream.toServer.writer.Close()
 
 	return true
 }
 
-func (s *ffxivStream) getHalf(direction reassembly.TCPFlowDirection) *ffxivHalfStream {
+func (stream *tcpStream) getHalf(direction reassembly.TCPFlowDirection) *tcpFlow {
 	switch direction {
 	case reassembly.TCPDirServerToClient:
-		return s.toClient
+		return stream.toClient
 	case reassembly.TCPDirClientToServer:
-		return s.toServer
+		return stream.toServer
 	}
 
 	// Unreachable as long as TCPFlowDirection is bool
 	panic("unknown TCP direction")
 }
 
-func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
+func (flow *tcpFlow) Run(wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Debugf("Starting half stream processing for %v", hs)
+	log.Debugf("Starting half stream processing for %v", flow)
 
-	scanner := bufio.NewScanner(hs.r)
-	scanner.Split(hs.splitBundles)
-	defer hs.r.Close()
+	scanner := bufio.NewScanner(flow.reader)
+	scanner.Split(flow.splitBundles)
+	defer flow.reader.Close()
 
 	var bundle ffxiv.Bundle
 
@@ -127,7 +128,7 @@ func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 			log.WithError(err).Fatal("Failed to read bundle")
 		}
 
-		hs.bundles <- bundle
+		flow.bundles <- bundle
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -135,7 +136,7 @@ func (hs *ffxivHalfStream) Run(wg *sync.WaitGroup) {
 	}
 }
 
-func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token []byte, err error) {
+func (flow *tcpFlow) splitBundles(data []byte, _ bool) (advance int, token []byte, err error) {
 	// There are 3 failure modes to be aware of when considering lost bytes:
 	//     1) The magic header was (partially) lost, so its delimited bundle will
 	//        not be found by the Scanner and *not* cause any issues.
@@ -145,7 +146,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	//        an error of some sort after a sequence of completely invalid bundles.
 	//	   3) The entire bundle as a whole was sent as one TCP segment, and was completely lost.
 	//		  This will also *not* cause any issues with misinterpreting the data stream.
-	if hs.lostData.Swap(false) {
+	if flow.lostData.Swap(false) {
 		log.Warnf("Discarding all %d bytes in scanner as a safety measure", len(data))
 		return len(data), nil, nil
 	}
@@ -182,4 +183,4 @@ func indexFirst(s []byte, seps ...[]byte) int {
 	return idx
 }
 
-var _ reassembly.Stream = (*ffxivStream)(nil)
+var _ reassembly.Stream = (*tcpStream)(nil)
