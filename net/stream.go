@@ -16,6 +16,8 @@ import (
 	"github.com/sparta142/goblade/ffxiv"
 )
 
+const kibibytes = 1024
+
 type ffxivStream struct {
 	fsm                reassembly.TCPSimpleFSM
 	toClient, toServer ffxivHalfStream
@@ -42,7 +44,7 @@ func newFfxivHalfStream(src, dst string, bundles chan<- ffxiv.Bundle) ffxivHalfS
 		Dst:     dst,
 	}
 	halfStream.lostData.Store(false)
-	halfStream.r, halfStream.w = nio.Pipe(buffer.New(4 * 1024)) //nolint:gomnd // 4 KiB
+	halfStream.r, halfStream.w = nio.Pipe(buffer.New(2 * kibibytes))
 
 	return halfStream
 }
