@@ -77,6 +77,7 @@ jobs:
           # publish_results: true
 
       - name: Upload results
+        if: ${{ github.event_name != 'pull_request' }}
         uses: github/codeql-action/upload-sarif@c3b6fce4ee2ca25bc1066aa3bf73962fda0e8898
         with:
           sarif_file: results.sarif
