@@ -21,12 +21,12 @@ const kibibytes = 1024
 
 type ffxivStream struct {
 	fsm                reassembly.TCPSimpleFSM
-	toClient, toServer ffxivHalfStream
+	toClient, toServer *ffxivHalfStream
 }
 
 type ffxivHalfStream struct {
 	// Whether the reassembler missed a TCP segment
-	lostData atomic.Value
+	lostData atomic.Bool
 
 	r *nio.PipeReader
 	w *nio.PipeWriter
@@ -39,7 +39,7 @@ type ffxivHalfStream struct {
 func newFfxivHalfStream(src, dst netip.AddrPort, bundles chan<- ffxiv.Bundle) *ffxivHalfStream {
 	log.Debugf("Creating half stream for %s->%s", src, dst)
 
-	halfStream := ffxivHalfStream{
+	halfStream := &ffxivHalfStream{
 		bundles: bundles,
 		Src:     src,
 		Dst:     dst,
@@ -103,9 +103,9 @@ func (s *ffxivStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool {
 func (s *ffxivStream) getHalf(direction reassembly.TCPFlowDirection) *ffxivHalfStream {
 	switch direction {
 	case reassembly.TCPDirServerToClient:
-		return &s.toClient
+		return s.toClient
 	case reassembly.TCPDirClientToServer:
-		return &s.toServer
+		return s.toServer
 	}
 
 	// Unreachable as long as TCPFlowDirection is bool
@@ -145,7 +145,7 @@ func (hs *ffxivHalfStream) splitBundles(data []byte, _ bool) (advance int, token
 	//        an error of some sort after a sequence of completely invalid bundles.
 	//	   3) The entire bundle as a whole was sent as one TCP segment, and was completely lost.
 	//		  This will also *not* cause any issues with misinterpreting the data stream.
-	if hs.lostData.Swap(false) == true {
+	if hs.lostData.Swap(false) {
 		log.Warnf("Discarding all %d bytes in scanner as a safety measure", len(data))
 		return len(data), nil, nil
 	}
