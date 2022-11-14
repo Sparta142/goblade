@@ -10,14 +10,14 @@ on:
 
 permissions: read-all
 
-env:
-  CGO_ENABLED: 1
-
 jobs:
   codeql:
     name: CodeQL
 
     runs-on: ubuntu-latest
+
+    env:
+      CGO_ENABLED: 1
 
     permissions:
       actions: read
@@ -74,7 +74,7 @@ jobs:
           results_file: results.sarif
           results_format: sarif
           repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}
-          # publish_results: true
+          publish_results: true
 
       - name: Upload results
         if: ${{ github.event_name != 'pull_request' }}
