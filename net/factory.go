@@ -2,6 +2,7 @@ package net
 
 import (
 	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/google/gopacket"
@@ -20,8 +21,8 @@ func (fac *tcpStreamFactory) New( //nolint:ireturn // To satisfy the reassembly.
 	_ *layers.TCP,
 	_ reassembly.AssemblerContext,
 ) reassembly.Stream {
-	src := net.JoinHostPort(netFlow.Src().String(), transport.Src().String())
-	dst := net.JoinHostPort(netFlow.Dst().String(), transport.Dst().String())
+	src := toAddrPort(netFlow.Src(), transport.Src())
+	dst := toAddrPort(netFlow.Dst(), transport.Dst())
 
 	stream := &ffxivStream{
 		fsm: *reassembly.NewTCPSimpleFSM(reassembly.TCPSimpleFSMOptions{
@@ -40,6 +41,11 @@ func (fac *tcpStreamFactory) New( //nolint:ireturn // To satisfy the reassembly.
 
 func (fac *tcpStreamFactory) Wait() {
 	fac.wg.Wait()
+}
+
+func toAddrPort(network, transport gopacket.Endpoint) netip.AddrPort {
+	s := net.JoinHostPort(network.String(), transport.String())
+	return netip.MustParseAddrPort(s)
 }
 
 var _ reassembly.StreamFactory = (*tcpStreamFactory)(nil)

@@ -3,6 +3,7 @@ package net
 import (
 	"bufio"
 	"bytes"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 
@@ -32,10 +33,10 @@ type ffxivHalfStream struct {
 
 	bundles chan<- ffxiv.Bundle
 
-	Src, Dst string
+	Src, Dst netip.AddrPort
 }
 
-func newFfxivHalfStream(src, dst string, bundles chan<- ffxiv.Bundle) ffxivHalfStream {
+func newFfxivHalfStream(src, dst netip.AddrPort, bundles chan<- ffxiv.Bundle) *ffxivHalfStream {
 	log.Debugf("Creating half stream for %s->%s", src, dst)
 
 	halfStream := ffxivHalfStream{
