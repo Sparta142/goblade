@@ -3,6 +3,7 @@ package net
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"net/netip"
 	"sync"
 	"sync/atomic"
@@ -38,17 +39,17 @@ type tcpFlow struct {
 }
 
 func newTCPFlow(src, dst netip.AddrPort, bundles chan<- ffxiv.Bundle) *tcpFlow {
-	log.Debugf("Creating half stream for %s->%s", src, dst)
-
-	halfStream := &tcpFlow{
+	flow := &tcpFlow{
 		bundles: bundles,
 		Src:     src,
 		Dst:     dst,
 	}
-	halfStream.lostData.Store(false)
-	halfStream.reader, halfStream.writer = nio.Pipe(buffer.New(2 * kibibytes))
+	flow.lostData.Store(false)
+	flow.reader, flow.writer = nio.Pipe(buffer.New(2 * kibibytes))
 
-	return halfStream
+	log.Debugf("Created TCP flow for %s", flow)
+
+	return flow
 }
 
 func (stream *tcpStream) Accept(
@@ -60,7 +61,7 @@ func (stream *tcpStream) Accept(
 	_ reassembly.AssemblerContext,
 ) bool {
 	if !stream.fsm.CheckState(tcp, dir) {
-		log.Debug("Packet failed state check, ignoring")
+		log.Warn("Packet failed state check, ignoring")
 		return false
 	}
 
@@ -76,10 +77,10 @@ func (stream *tcpStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly
 	}
 
 	direction, _, _, skip := sg.Info()
-	half := stream.getHalf(direction)
+	flow := stream.getFlow(direction)
 
 	if skip > 0 {
-		half.lostData.Store(true)
+		flow.lostData.Store(true)
 		log.Warnf("Lost %d bytes in stream", skip)
 
 		return
@@ -87,8 +88,8 @@ func (stream *tcpStream) ReassembledSG(sg reassembly.ScatterGather, _ reassembly
 
 	// Queue the packets to the Bundle reading logic
 	p := sg.Fetch(available)
-	if _, err := half.writer.Write(p); err != nil {
-		log.WithError(err).Fatal("Failed to write data to half stream")
+	if _, err := flow.writer.Write(p); err != nil {
+		log.WithError(err).Fatal("Failed to write data to TCP flow")
 	}
 }
 
@@ -101,7 +102,7 @@ func (stream *tcpStream) ReassemblyComplete(_ reassembly.AssemblerContext) bool 
 	return true
 }
 
-func (stream *tcpStream) getHalf(direction reassembly.TCPFlowDirection) *tcpFlow {
+func (stream *tcpStream) getFlow(direction reassembly.TCPFlowDirection) *tcpFlow {
 	switch direction {
 	case reassembly.TCPDirServerToClient:
 		return stream.toClient
@@ -113,9 +114,13 @@ func (stream *tcpStream) getHalf(direction reassembly.TCPFlowDirection) *tcpFlow
 	panic("unknown TCP direction")
 }
 
+func (flow *tcpFlow) String() string {
+	return fmt.Sprintf("%s->%s", flow.Src, flow.Dst)
+}
+
 func (flow *tcpFlow) Run(wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Debugf("Starting half stream processing for %v", flow)
+	log.Debugf("Starting TCP flow processing for %s", flow)
 
 	scanner := bufio.NewScanner(flow.reader)
 	scanner.Split(flow.splitBundles)
