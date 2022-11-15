@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/inconshreveable/mousetrap"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/sparta142/goblade/ffxiv"
 	"github.com/spf13/cobra"
 )
@@ -36,12 +36,16 @@ var rootCmd = &cobra.Command{
 	},
 	PersistentPreRun: func(*cobra.Command, []string) {
 		if verbose {
-			logrus.SetLevel(logrus.DebugLevel)
+			log.SetLevel(log.DebugLevel)
 		}
 	},
 }
 
 func Execute() {
+	log.StandardLogger().Formatter = &log.TextFormatter{
+		TimestampFormat: "2006-01-02T15:04:05.000Z07:00",
+	}
+
 	// Default to executing "goblade live" if opened from Explorer
 	cobra.MousetrapHelpText = ""
 	if mousetrap.StartedByExplorer() {
