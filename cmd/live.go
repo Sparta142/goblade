@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+
+	"github.com/goccy/go-json"
 
 	log "github.com/sirupsen/logrus"
 
@@ -94,7 +95,7 @@ func handlePackets(handle *pcap.Handle) {
 	e.SetIndent("", "")
 
 	for bnd := range bundles {
-		err := e.Encode(bnd)
+		err := e.EncodeWithOption(bnd, json.DisableNormalizeUTF8())
 		if err != nil {
 			log.WithError(err).Fatal("Failed to encode bundle")
 		}
