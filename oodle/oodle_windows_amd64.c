@@ -1,11 +1,13 @@
-#include <malloc.h>  // _aligned_free, _aligned_malloc
-#include <memory.h>  // memcpy_s
-#include <stdbool.h> // bool, false, true
-#include <stddef.h>  // size_t
-#include <stdint.h>  // int32_t, int64_t
-#include <stdio.h>   // sprintf_s
-#include <stdlib.h>  // abort
-#include <string.h>  // memset
+#include <assert.h>   // assert, static_assert
+#include <malloc.h>   // _aligned_free, _aligned_malloc
+#include <memory.h>   // memcpy_s
+#include <stdalign.h> // alignas, alignof
+#include <stdbool.h>  // bool, false, true
+#include <stddef.h>   // size_t
+#include <stdint.h>   // int32_t, int64_t
+#include <stdio.h>    // sprintf_s
+#include <stdlib.h>   // abort
+#include <string.h>   // memset
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h> // ...
@@ -17,7 +19,6 @@
 #define HASHTABLE_BITS 19
 #define WINDOW_SIZE 0x16000
 #define MAX_DECOMPRESSED_SIZE (1 << 16)
-#define SSE_ALIGNMENT _Alignof(__m128)
 
 static int64_t (*OodleNetworkUDP_State_Size)() = NULL;
 
@@ -165,15 +166,14 @@ static bool fixup_imports(HMODULE hModule)
 }
 
 /**
- * @brief Allocates a zero-initialized, aligned (to SSE_ALIGNMENT)
- * buffer of the specified size.
+ * @brief Allocates a zero-initialized, aligned buffer of the specified size.
  *
  * @param size The number of bytes to allocate.
  * @return `void*` The pointer to the beginning of newly allocated memory.
  */
 static void *aligned_calloc(const size_t size)
 {
-    return memset(_aligned_malloc(size, SSE_ALIGNMENT), 0, size);
+    return memset(_aligned_malloc(size, alignof(__m128)), 0, size);
 }
 
 /**
@@ -192,13 +192,15 @@ static void *shared = NULL;
 
 DWORD setup(const LPCSTR lpLibFileName)
 {
+    assert(lpLibFileName != NULL);
+
     if (hModule != NULL)
         return 0;
 
     InitializeCriticalSectionAndSpinCount(&criticalSection, 0x400);
 
     // Load the game executable as a library (this is cursed!)
-    hModule = LoadLibraryEx(lpLibFileName, NULL, LOAD_LIBRARY_REQUIRE_SIGNED_TARGET);
+    hModule = LoadLibraryExA(lpLibFileName, NULL, LOAD_LIBRARY_REQUIRE_SIGNED_TARGET);
     if (!hModule)
         return GetLastError();
 
@@ -232,7 +234,7 @@ DWORD setup(const LPCSTR lpLibFileName)
     state = aligned_calloc(OodleNetworkUDP_State_Size());
     shared = aligned_calloc(OodleNetwork1_Shared_Size(HASHTABLE_BITS));
 
-    if (!(window && state && shared))
+    if (!window || !state || !shared)
         return 2;
 
     // Set up Oodle
@@ -267,26 +269,28 @@ void shutdown()
     DeleteCriticalSection(&criticalSection);
 }
 
-bool decode(const void *comp, const int64_t compLen, void *raw, const int64_t rawLen)
+bool decode(const void *restrict comp, const int64_t compLen, void *restrict raw, const int64_t rawLen)
 {
-    if (rawLen > MAX_DECOMPRESSED_SIZE)
-        abort();
+    assert(rawLen <= MAX_DECOMPRESSED_SIZE);
 
     // Copy the compressed data into aligned storage
-    _Alignas(SSE_ALIGNMENT) unsigned char comp_a[MAX_DECOMPRESSED_SIZE];
-    if (memcpy_s(comp_a, sizeof(comp_a), comp, compLen) != 0)
+    alignas(__m128) unsigned char compAligned[MAX_DECOMPRESSED_SIZE];
+    if (memcpy_s(compAligned, sizeof(compAligned), comp, compLen) != 0)
         return false;
 
-    _Alignas(SSE_ALIGNMENT) unsigned char raw_a[MAX_DECOMPRESSED_SIZE];
+    alignas(__m128) unsigned char rawAligned[MAX_DECOMPRESSED_SIZE];
 
     // Decompress the data
     EnterCriticalSection(&criticalSection);
-    const bool success = OodleNetwork1UDP_Decode(state, shared, comp_a, compLen, raw_a, rawLen);
+    const bool success = OodleNetwork1UDP_Decode(state, shared, compAligned, compLen, rawAligned, rawLen);
     LeaveCriticalSection(&criticalSection);
 
     // Copy the decompressed result back into unaligned storage
-    if (success)
-        memcpy(raw, raw_a, rawLen);
+    memcpy(raw, rawAligned, rawLen);
 
     return success;
 }
+
+static_assert(
+    sizeof(void *) == sizeof(OodleNetworkUDP_State_Size),
+    "void pointer and function pointer are different sizes");
