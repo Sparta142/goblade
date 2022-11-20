@@ -156,13 +156,22 @@ func (flow *tcpFlow) splitBundles(data []byte, _ bool) (advance int, token []byt
 		return len(data), nil, nil
 	}
 
-	// Find the magic bytes in `data`
-	idx := indexFirst(data, ffxiv.IpcMagicBytes, ffxiv.KeepAliveMagicBytes)
-	if idx == -1 {
-		return 0, nil, nil
+	var idx int
+
+	// Find the magic bytes in `data`.
+	// We explicitly check index 0 first since the magic bytes will always
+	// be there unless something went wrong. When we're correct,
+	// this function will run about 11x faster (according to pprof).
+	if bytes.HasPrefix(data, ffxiv.IpcMagicBytes) || bytes.HasPrefix(data, ffxiv.KeepAliveMagicBytes) {
+		idx = 0
+	} else {
+		idx = indexFirst(data, ffxiv.IpcMagicBytes, ffxiv.KeepAliveMagicBytes)
+		if idx == -1 {
+			return 0, nil, nil
+		}
 	}
 
-	// The chunk of `data` that starts with the magic string (found above)
+	// The chunk of `data` that starts with the magic bytes (found above)
 	chunk := data[idx:]
 
 	length := ffxiv.PeekBundleLength(chunk) // The (probable) length of the Bundle
@@ -180,6 +189,7 @@ func indexFirst(s []byte, seps ...[]byte) int {
 	for _, sep := range seps {
 		index := bytes.Index(s, sep)
 
+		// Did we match and is it earlier than what we already matched, if any?
 		if index != -1 && (idx == -1 || index < idx) {
 			idx = index
 		}
