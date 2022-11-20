@@ -6,7 +6,6 @@
 #include <stddef.h>   // size_t
 #include <stdint.h>   // int32_t, int64_t
 #include <stdio.h>    // sprintf_s
-#include <stdlib.h>   // abort
 #include <string.h>   // memset
 
 #define WIN32_LEAN_AND_MEAN
@@ -275,7 +274,7 @@ bool decode(const void *restrict comp, const int64_t compLen, void *restrict raw
 
     // Copy the compressed data into aligned storage
     alignas(__m128) unsigned char compAligned[MAX_DECOMPRESSED_SIZE];
-    if (memcpy_s(compAligned, sizeof(compAligned), comp, compLen) != 0)
+    if (memcpy_s(compAligned, MAX_DECOMPRESSED_SIZE, comp, compLen) != 0)
         return false;
 
     // Decompress the data
