@@ -278,15 +278,10 @@ bool decode(const void *restrict comp, const int64_t compLen, void *restrict raw
     if (memcpy_s(compAligned, sizeof(compAligned), comp, compLen) != 0)
         return false;
 
-    alignas(__m128) unsigned char rawAligned[MAX_DECOMPRESSED_SIZE];
-
     // Decompress the data
     EnterCriticalSection(&criticalSection);
-    const bool success = OodleNetwork1UDP_Decode(state, shared, compAligned, compLen, rawAligned, rawLen);
+    const bool success = OodleNetwork1UDP_Decode(state, shared, compAligned, compLen, raw, rawLen);
     LeaveCriticalSection(&criticalSection);
-
-    // Copy the decompressed result back into unaligned storage
-    memcpy(raw, rawAligned, rawLen);
 
     return success;
 }
