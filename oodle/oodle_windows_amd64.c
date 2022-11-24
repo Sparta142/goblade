@@ -9,9 +9,9 @@
 #include <string.h>   // memset
 
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h> // ...
-#include <DbgHelp.h> // ImageDirectoryEntryToDataEx
-#include <Psapi.h>   // GetModuleInformation, MODULEINFO
+#include <windows.h> // ...
+#include <dbghelp.h> // ImageDirectoryEntryToDataEx
+#include <psapi.h>   // GetModuleInformation, MODULEINFO
 
 #include <xmmintrin.h> // __m128
 
@@ -60,8 +60,8 @@ static void *scan_image(const HMODULE hModule, const int pattern[], const size_t
         return NULL;
 
     // Calculate the search bounds
-    unsigned char *const start = modinfo.lpBaseOfDll;
-    unsigned char *const end = start + modinfo.SizeOfImage - patternLen;
+    const unsigned char *const start = modinfo.lpBaseOfDll;
+    const unsigned char *const end = start + modinfo.SizeOfImage - patternLen;
 
     // Scan the image for the pattern
     for (unsigned char *offset = start; offset < end; ++offset)
@@ -91,7 +91,7 @@ static void *scan_image(const HMODULE hModule, const int pattern[], const size_t
 static bool fixup_imports(HMODULE hModule)
 {
     ULONG size;
-    PIMAGE_IMPORT_DESCRIPTOR pImportDesc = ImageDirectoryEntryToDataEx(
+    const IMAGE_IMPORT_DESCRIPTOR *pImportDesc = ImageDirectoryEntryToDataEx(
         hModule,
         true,
         IMAGE_DIRECTORY_ENTRY_IMPORT,
@@ -103,7 +103,7 @@ static bool fixup_imports(HMODULE hModule)
 
     for (; pImportDesc->Name; ++pImportDesc)
     {
-        const PSTR pszModName = (PCHAR)hModule + pImportDesc->Name;
+        const PCSTR pszModName = (PCHAR)hModule + pImportDesc->Name;
         if (!pszModName)
             break;
 
@@ -137,7 +137,7 @@ static bool fixup_imports(HMODULE hModule)
             }
             else
             {
-                const PSTR fName = (PSTR)hModule + pThunk->u1.Function + 2;
+                const PCSTR fName = (PCSTR)hModule + pThunk->u1.Function + 2;
                 if (!fName)
                     break;
 
@@ -268,7 +268,7 @@ void shutdown()
     DeleteCriticalSection(&criticalSection);
 }
 
-bool decode(const void *restrict comp, const int64_t compLen, void *restrict raw, const int64_t rawLen)
+bool decode(const void *comp, const int64_t compLen, void *raw, const int64_t rawLen)
 {
     assert(rawLen <= MAX_DECOMPRESSED_SIZE);
 
