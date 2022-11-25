@@ -2,7 +2,7 @@ package oodle
 
 /*
 #cgo windows LDFLAGS: -ldbghelp -lpsapi
-#cgo windows CFLAGS: -Wall -Wextra -Wno-unused-variable
+#cgo windows CFLAGS: --std=c17 -Wall -Wextra -Wno-unused-variable
 
 #include <minwindef.h>
 #include <stdbool.h>

@@ -1,23 +1,23 @@
-#include <malloc.h>  // _aligned_free, _aligned_malloc
-#include <memory.h>  // memcpy_s
-#include <stdbool.h> // bool, false, true
-#include <stddef.h>  // size_t
-#include <stdint.h>  // int32_t, int64_t
-#include <stdio.h>   // sprintf_s
-#include <stdlib.h>  // abort
-#include <string.h>  // memset
+#include <assert.h>   // assert, static_assert
+#include <malloc.h>   // _aligned_free, _aligned_malloc
+#include <memory.h>   // memcpy_s
+#include <stdalign.h> // alignas, alignof
+#include <stdbool.h>  // bool, false, true
+#include <stddef.h>   // size_t
+#include <stdint.h>   // int32_t, int64_t
+#include <stdio.h>    // sprintf_s
+#include <string.h>   // memset
 
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h> // ...
-#include <DbgHelp.h> // ImageDirectoryEntryToDataEx
-#include <Psapi.h>   // GetModuleInformation, MODULEINFO
+#include <windows.h> // ...
+#include <dbghelp.h> // ImageDirectoryEntryToDataEx
+#include <psapi.h>   // GetModuleInformation, MODULEINFO
 
 #include <xmmintrin.h> // __m128
 
 #define HASHTABLE_BITS 19
 #define WINDOW_SIZE 0x16000
 #define MAX_DECOMPRESSED_SIZE (1 << 16)
-#define SSE_ALIGNMENT _Alignof(__m128)
 
 static int64_t (*OodleNetworkUDP_State_Size)() = NULL;
 
@@ -53,18 +53,18 @@ static void (*OodleNetwork1UDP_Train)(
  * @param patternLen The number of elements in pattern
  * @return `void*` The pointer to the beginning of the found pattern, or NULL if not found
  */
-static void *scan_image(const HMODULE hModule, const int pattern[], const size_t patternLen)
+static const void *scan_image(const HMODULE hModule, const int pattern[], const size_t patternLen)
 {
     MODULEINFO modinfo;
     if (!GetModuleInformation(GetCurrentProcess(), hModule, &modinfo, sizeof(modinfo)))
         return NULL;
 
     // Calculate the search bounds
-    unsigned char *const start = modinfo.lpBaseOfDll;
-    unsigned char *const end = start + modinfo.SizeOfImage - patternLen;
+    const unsigned char *const start = modinfo.lpBaseOfDll;
+    const unsigned char *const end = start + modinfo.SizeOfImage - patternLen;
 
     // Scan the image for the pattern
-    for (unsigned char *offset = start; offset < end; ++offset)
+    for (const unsigned char *offset = start; offset < end; ++offset)
     {
         bool matched = true;
 
@@ -91,7 +91,7 @@ static void *scan_image(const HMODULE hModule, const int pattern[], const size_t
 static bool fixup_imports(HMODULE hModule)
 {
     ULONG size;
-    PIMAGE_IMPORT_DESCRIPTOR pImportDesc = ImageDirectoryEntryToDataEx(
+    const IMAGE_IMPORT_DESCRIPTOR *pImportDesc = ImageDirectoryEntryToDataEx(
         hModule,
         true,
         IMAGE_DIRECTORY_ENTRY_IMPORT,
@@ -103,7 +103,7 @@ static bool fixup_imports(HMODULE hModule)
 
     for (; pImportDesc->Name; ++pImportDesc)
     {
-        const PSTR pszModName = (PCHAR)hModule + pImportDesc->Name;
+        const PCSTR pszModName = (PCHAR)hModule + pImportDesc->Name;
         if (!pszModName)
             break;
 
@@ -137,7 +137,7 @@ static bool fixup_imports(HMODULE hModule)
             }
             else
             {
-                const PSTR fName = (PSTR)hModule + pThunk->u1.Function + 2;
+                const PCSTR fName = (PCSTR)hModule + pThunk->u1.Function + 2;
                 if (!fName)
                     break;
 
@@ -165,15 +165,14 @@ static bool fixup_imports(HMODULE hModule)
 }
 
 /**
- * @brief Allocates a zero-initialized, aligned (to SSE_ALIGNMENT)
- * buffer of the specified size.
+ * @brief Allocates a zero-initialized, aligned buffer of the specified size.
  *
  * @param size The number of bytes to allocate.
  * @return `void*` The pointer to the beginning of newly allocated memory.
  */
 static void *aligned_calloc(const size_t size)
 {
-    return memset(_aligned_malloc(size, SSE_ALIGNMENT), 0, size);
+    return memset(_aligned_malloc(size, alignof(__m128)), 0, size);
 }
 
 /**
@@ -192,13 +191,15 @@ static void *shared = NULL;
 
 DWORD setup(const LPCSTR lpLibFileName)
 {
+    assert(lpLibFileName != NULL);
+
     if (hModule != NULL)
         return 0;
 
     InitializeCriticalSectionAndSpinCount(&criticalSection, 0x400);
 
     // Load the game executable as a library (this is cursed!)
-    hModule = LoadLibraryEx(lpLibFileName, NULL, LOAD_LIBRARY_REQUIRE_SIGNED_TARGET);
+    hModule = LoadLibraryExA(lpLibFileName, NULL, LOAD_LIBRARY_REQUIRE_SIGNED_TARGET);
     if (!hModule)
         return GetLastError();
 
@@ -232,7 +233,7 @@ DWORD setup(const LPCSTR lpLibFileName)
     state = aligned_calloc(OodleNetworkUDP_State_Size());
     shared = aligned_calloc(OodleNetwork1_Shared_Size(HASHTABLE_BITS));
 
-    if (!(window && state && shared))
+    if (!window || !state || !shared)
         return 2;
 
     // Set up Oodle
@@ -269,24 +270,21 @@ void shutdown()
 
 bool decode(const void *comp, const int64_t compLen, void *raw, const int64_t rawLen)
 {
-    if (rawLen > MAX_DECOMPRESSED_SIZE)
-        abort();
+    assert(rawLen <= MAX_DECOMPRESSED_SIZE);
 
     // Copy the compressed data into aligned storage
-    _Alignas(SSE_ALIGNMENT) unsigned char comp_a[MAX_DECOMPRESSED_SIZE];
-    if (memcpy_s(comp_a, sizeof(comp_a), comp, compLen) != 0)
+    alignas(__m128) unsigned char compAligned[MAX_DECOMPRESSED_SIZE];
+    if (memcpy_s(compAligned, MAX_DECOMPRESSED_SIZE, comp, compLen) != 0)
         return false;
-
-    _Alignas(SSE_ALIGNMENT) unsigned char raw_a[MAX_DECOMPRESSED_SIZE];
 
     // Decompress the data
     EnterCriticalSection(&criticalSection);
-    const bool success = OodleNetwork1UDP_Decode(state, shared, comp_a, compLen, raw_a, rawLen);
+    const bool success = OodleNetwork1UDP_Decode(state, shared, compAligned, compLen, raw, rawLen);
     LeaveCriticalSection(&criticalSection);
-
-    // Copy the decompressed result back into unaligned storage
-    if (success)
-        memcpy(raw, raw_a, rawLen);
 
     return success;
 }
+
+static_assert(
+    sizeof(void *) == sizeof(OodleNetworkUDP_State_Size),
+    "void pointer and function pointer are different sizes");

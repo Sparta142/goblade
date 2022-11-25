@@ -78,6 +78,11 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 		return err
 	}
 
+	// Sanity check
+	if len(data) < int(b.Length) {
+		return ErrNotEnoughData
+	}
+
 	if err := b.unmarshalPayload(data[bundleHeaderSize:]); err != nil {
 		return err
 	}
@@ -108,15 +113,10 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 	b.Epoch = byteOrder.Uint64(data[16:24])
 	b.Length = byteOrder.Uint32(data[24:28])
 	b.ConnectionType = byteOrder.Uint16(data[28:30])
+	b.Segments = make([]Segment, byteOrder.Uint16(data[30:32]))
 	b.Encoding = EncodingType(data[32])
 	b.Compression = CompressionType(data[33])
-	b.Segments = make([]Segment, byteOrder.Uint16(data[30:32]))
 	b.UncompressedLength = byteOrder.Uint32(data[36:40])
-
-	// Sanity check
-	if len(data) != int(b.Length) {
-		return ErrNotEnoughData
-	}
 
 	return nil
 }
@@ -174,9 +174,8 @@ func decompressBytes(data []byte, compression CompressionType, rawLen uint32) ([
 		}
 
 	case CompressionOodle:
-		var err error
 		decompressed = make([]byte, rawLen)
-		if err = oodle.Decode(data, decompressed); err != nil {
+		if err := oodle.Decode(data, decompressed); err != nil {
 			return nil, fmt.Errorf("oodle decode: %w", err)
 		}
 

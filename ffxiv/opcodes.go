@@ -2,9 +2,10 @@ package ffxiv
 
 import (
 	_ "embed"
-	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/goccy/go-json"
 )
 
 var ErrUnknownRegion = errors.New("ffxiv: unknown region")
