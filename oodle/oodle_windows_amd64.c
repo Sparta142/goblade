@@ -53,7 +53,7 @@ static void (*OodleNetwork1UDP_Train)(
  * @param patternLen The number of elements in pattern
  * @return `void*` The pointer to the beginning of the found pattern, or NULL if not found
  */
-static void *scan_image(const HMODULE hModule, const int pattern[], const size_t patternLen)
+static const void *scan_image(const HMODULE hModule, const int pattern[], const size_t patternLen)
 {
     MODULEINFO modinfo;
     if (!GetModuleInformation(GetCurrentProcess(), hModule, &modinfo, sizeof(modinfo)))
@@ -64,7 +64,7 @@ static void *scan_image(const HMODULE hModule, const int pattern[], const size_t
     const unsigned char *const end = start + modinfo.SizeOfImage - patternLen;
 
     // Scan the image for the pattern
-    for (unsigned char *offset = start; offset < end; ++offset)
+    for (const unsigned char *offset = start; offset < end; ++offset)
     {
         bool matched = true;
 
