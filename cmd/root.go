@@ -13,6 +13,7 @@ import (
 var (
 	verbose = false
 	region  = string(ffxiv.RegionGlobal)
+	opcodes ffxiv.OpcodeTable
 )
 
 // Version info from ldflags.
@@ -38,6 +39,11 @@ var rootCmd = &cobra.Command{
 		if verbose {
 			log.SetLevel(log.DebugLevel)
 		}
+
+		// Load the opcode table for the requested region
+		var err error
+		opcodes, err = ffxiv.GetOpcodes(ffxiv.Region(region))
+		cobra.CheckErr(err)
 	},
 }
 
