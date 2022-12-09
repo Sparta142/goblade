@@ -89,6 +89,7 @@ jobs:
 
     env:
       BUILD_WRAPPER_OUT_DIR: build_wrapper_out
+      CGO_ENABLED: 1
 
     steps:
       - name: Checkout
