@@ -16,7 +16,8 @@ type tcpStreamFactory struct {
 	out chan<- ffxiv.Bundle
 }
 
-func (fac *tcpStreamFactory) New( //nolint:ireturn // To satisfy the reassembly.StreamFactory interface
+// New implements reassembly.StreamFactory.
+func (fac *tcpStreamFactory) New( //nolint:ireturn
 	netFlow, transport gopacket.Flow,
 	_ *layers.TCP,
 	_ reassembly.AssemblerContext,
