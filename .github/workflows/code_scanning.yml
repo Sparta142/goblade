@@ -101,7 +101,7 @@ jobs:
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false  # build-wrapper doesn't detect cgo files with this enabled
 
       - name: Install sonar-scanner and build-wrapper
         uses: SonarSource/sonarcloud-github-c-cpp@f218be71ddd704dcf7f1b761caa6ffb14134094a
