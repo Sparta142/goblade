@@ -45,3 +45,7 @@ dist/
 
 # cgo build directory
 _obj/
+
+# Packet capture files
+*.pcap
+*.pcapng
