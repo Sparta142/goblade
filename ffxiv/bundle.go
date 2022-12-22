@@ -99,6 +99,8 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 		return ErrNotEnoughData
 	}
 
+	_ = data[bundleHeaderSize-1]
+
 	// Validate the magic bytes
 	if !bytes.HasPrefix(data, IpcMagicBytes) && !bytes.HasPrefix(data, KeepAliveMagicBytes) {
 		return ErrBadMagicBytes

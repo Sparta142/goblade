@@ -56,6 +56,8 @@ func (s *Segment) UnmarshalBinary(data []byte) error {
 		return ErrNotEnoughData
 	}
 
+	_ = data[segmentHeaderSize-1]
+
 	// Read the Segment header
 	s.Length = byteOrder.Uint32(data[0:4])
 	s.Source = byteOrder.Uint32(data[4:8])
