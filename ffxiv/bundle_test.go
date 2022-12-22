@@ -93,7 +93,6 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 	assert.NoError(err)
 
 	// Test the header fields
-	assert.Equal(ffxiv.IpcMagicBytes, bundle.Magic[:]) // Should be enforced by UnmarshalBinary()
 	assert.EqualValues(1624314020072, bundle.Epoch)
 	assert.EqualValues(266, bundle.Length)
 	assert.EqualValues(0, bundle.ConnectionType)
@@ -135,7 +134,6 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 	assert.NoError(err)
 
 	// Test the header fields
-	assert.Equal(ffxiv.IpcMagicBytes, bundle.Magic[:]) // Should be enforced by UnmarshalBinary()
 	assert.EqualValues(1624314019411, bundle.Epoch)
 	assert.EqualValues(288, bundle.Length)
 	assert.EqualValues(0, bundle.ConnectionType)

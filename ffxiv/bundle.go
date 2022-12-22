@@ -49,10 +49,6 @@ const (
 var byteOrder = binary.LittleEndian
 
 type Bundle struct {
-	// Magic bytes header - all IPC bundles share the same magic bytes
-	// and all keep-alive bundles have a magic string of all null bytes.
-	Magic [16]byte `json:"-"`
-
 	// The number of milliseconds since the Unix epoch time.
 	Epoch uint64 `json:"epoch"`
 
@@ -103,13 +99,12 @@ func (b *Bundle) unmarshalHeader(data []byte) error {
 		return ErrNotEnoughData
 	}
 
-	// Read and validate the Bundle header
-	copy(b.Magic[:], data)
-
-	if !bytes.Equal(b.Magic[:], IpcMagicBytes) && !bytes.Equal(b.Magic[:], KeepAliveMagicBytes) {
+	// Validate the magic bytes
+	if !bytes.HasPrefix(data, IpcMagicBytes) && !bytes.HasPrefix(data, KeepAliveMagicBytes) {
 		return ErrBadMagicBytes
 	}
 
+	// Read and validate the Bundle header
 	b.Epoch = byteOrder.Uint64(data[16:24])
 	b.Length = byteOrder.Uint32(data[24:28])
 	b.ConnectionType = byteOrder.Uint16(data[28:30])
