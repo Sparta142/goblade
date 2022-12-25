@@ -98,11 +98,14 @@ func (b *Bundle) UnmarshalBinary(data []byte) error {
 		return fmt.Errorf("check length for bundle: %w", ErrNotEnoughData)
 	}
 
-	rental := slicePool.Get().([]byte)
+	rental := slicePool.Get()
 	defer slicePool.Put(rental)
 
 	// Decompress the Bundle payload
-	payloadData, err := compression.Decompress(data[bundleHeaderSize:], rental[:uncompressedLength])
+	payloadData, err := compression.Decompress(
+		data[bundleHeaderSize:],
+		rental.([]byte)[:uncompressedLength],
+	)
 	if err != nil {
 		return fmt.Errorf("decompress payload: %w", err)
 	}
