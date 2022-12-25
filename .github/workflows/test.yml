@@ -35,7 +35,9 @@ jobs:
           sudo apt-get install -q -y libpcap-dev
 
       - name: Test
-        run: go test -v ./...
+        run: |
+          go generate ./...
+          go test -v ./...
 
   golangci:
     name: Lint
@@ -54,6 +56,9 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -q -y libpcap-dev
+
+      - name: Generate files
+        run: go generate ./...
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@0ad9a0988b3973e851ab0a07adf248ec2e100376

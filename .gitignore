@@ -49,3 +49,6 @@ _obj/
 # Packet capture files
 *.pcap
 *.pcapng
+
+# Generated files
+/ffxiv/opcodes.json
