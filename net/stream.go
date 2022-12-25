@@ -175,7 +175,7 @@ func (flow *tcpFlow) splitBundles(data []byte, _ bool) (advance int, token []byt
 	chunk := data[idx:]
 
 	length := ffxiv.PeekBundleLength(chunk) // The (probable) length of the Bundle
-	if length > len(chunk) || length == -1 {
+	if length > len(chunk) || length < 0 {
 		return idx, nil, nil
 	}
 

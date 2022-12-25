@@ -94,12 +94,8 @@ func TestUnmarshalBinary_CompressedIpc(t *testing.T) {
 
 	// Test the header fields
 	assert.EqualValues(1624314020072, bundle.Epoch)
-	assert.EqualValues(266, bundle.Length)
 	assert.EqualValues(0, bundle.ConnectionType)
 	assert.EqualValues(1, bundle.Encoding)
-	assert.EqualValues(1, bundle.Compression)
-
-	assert.True(bundle.IsCompressed())
 
 	nsec := int((72 * time.Millisecond).Nanoseconds()) // 72 ms
 	assert.Equal(time.Date(2021, 6, 21, 22, 20, 20, nsec, time.UTC), bundle.Time())
@@ -135,12 +131,8 @@ func TestUnmarshalBinary_NonCompressedIpc(t *testing.T) {
 
 	// Test the header fields
 	assert.EqualValues(1624314019411, bundle.Epoch)
-	assert.EqualValues(288, bundle.Length)
 	assert.EqualValues(0, bundle.ConnectionType)
 	assert.EqualValues(1, bundle.Encoding)
-	assert.EqualValues(0, bundle.Compression)
-
-	assert.False(bundle.IsCompressed())
 
 	nsec := int((411 * time.Millisecond).Nanoseconds()) // 411 ms
 	assert.Equal(time.Date(2021, 6, 21, 22, 20, 19, nsec, time.UTC), bundle.Time())
