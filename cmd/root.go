@@ -13,7 +13,7 @@ import (
 var (
 	verbose = false
 	region  = string(ffxiv.RegionGlobal)
-	opcodes ffxiv.OpcodeTable
+	opcodes ffxiv.OpcodeTable //nolint:unused
 )
 
 // Version info from ldflags.
