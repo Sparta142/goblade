@@ -9,7 +9,7 @@ require (
 	github.com/google/gopacket v1.1.20-0.20210429153827-3eaba0894325
 	github.com/inconshreveable/mousetrap v1.1.0
 	github.com/jackpal/gateway v1.0.7
-	github.com/klauspost/compress v1.15.15
+	github.com/klauspost/compress v1.16.0
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
