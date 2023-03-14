@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/djherbis/buffer v1.2.0
 	github.com/djherbis/nio/v3 v3.0.1
-	github.com/goccy/go-json v0.10.0
+	github.com/goccy/go-json v0.10.1
 	github.com/google/gopacket v1.1.20-0.20210429153827-3eaba0894325
 	github.com/inconshreveable/mousetrap v1.1.0
 	github.com/jackpal/gateway v1.0.7
